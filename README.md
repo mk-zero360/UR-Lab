@@ -42,10 +42,28 @@ pip install -r requirements.txt
 ### 4. Anwendung starten
 
 ```bash
-streamlit run app.py
+streamlit run streamlit_app.py
 ```
 
 Die Anwendung öffnet sich automatisch im Browser unter `http://localhost:8501`
+
+## ☁️ Streamlit Cloud Deployment
+
+### Schnelle Bereitstellung auf Streamlit Cloud:
+
+1. **Repository ist bereits vorbereitet** - `streamlit_app.py` ist der Einstiegspunkt
+2. **Gehe zu**: [share.streamlit.io](https://share.streamlit.io)
+3. **Verbinde GitHub** und wähle dieses Repository: `mk-zero360/UR-Lab`
+4. **Setze Secrets**: 
+   - Gehe zu App Settings → Secrets
+   - Füge hinzu: `OPENAI_API_KEY = "your_api_key_here"`
+5. **Deploy** - Die App ist sofort live!
+
+### Für lokale Entwicklung:
+```bash
+# OpenAI API Key in .env Datei hinzufügen:
+OPENAI_API_KEY=your_api_key_here
+```
 
 ## 🎯 Nutzung
 
