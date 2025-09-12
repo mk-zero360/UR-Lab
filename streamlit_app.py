@@ -117,19 +117,26 @@ st.markdown("""
         display: none;
     }
     
-    /* Compact Navigation Bar */
+    /* Modern Card-style Navigation Bar */
     .nav-bar {
-        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-        color: white;
-        padding: var(--space-3) var(--space-4);
-        margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-4)) var(--space-4) calc(-1 * var(--space-4));
-        border-radius: 0;
-        box-shadow: var(--shadow-md);
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--gray-200);
+        color: var(--gray-900);
+        padding: var(--space-4) var(--space-6);
+        margin: calc(-1 * var(--space-2)) calc(-1 * var(--space-4)) var(--space-6) calc(-1 * var(--space-4));
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
         position: relative;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        min-height: 60px;
+        min-height: 70px;
+        transition: all 0.2s ease;
+    }
+    
+    .nav-bar:hover {
+        box-shadow: var(--shadow-md);
     }
     
     /* Navigation buttons styling */
@@ -139,17 +146,31 @@ st.markdown("""
         align-items: center;
     }
     
-    /* Enhanced button styling for navigation */
+    /* Enhanced button styling for navigation - more subtle */
     .stButton > button[data-testid="baseButton-primary"] {
-        background: var(--primary) !important;
-        border: 2px solid var(--accent) !important;
+        background: rgba(255, 255, 255, 0.1) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
         color: white !important;
-        font-weight: 600 !important;
+        font-weight: 500 !important;
+        backdrop-filter: blur(10px) !important;
+        transition: all 0.2s ease !important;
+    }
+    
+    .stButton > button[data-testid="baseButton-primary"]:hover {
+        background: rgba(255, 255, 255, 0.2) !important;
+        border-color: rgba(255, 255, 255, 0.4) !important;
+        transform: translateY(-1px) !important;
     }
     
     .stButton > button[data-testid="baseButton-secondary"] {
+        background: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        color: rgba(255, 255, 255, 0.8) !important;
+        transition: all 0.2s ease !important;
+    }
+    
+    .stButton > button[data-testid="baseButton-secondary"]:hover {
         background: rgba(255, 255, 255, 0.1) !important;
-        border: 1px solid rgba(255, 255, 255, 0.3) !important;
         color: white !important;
     }
     
@@ -158,34 +179,84 @@ st.markdown("""
         font-weight: 700;
         margin: 0;
         letter-spacing: -0.025em;
+        color: var(--gray-900);
     }
     
     .nav-bar .status-indicator {
         display: flex;
-        gap: var(--space-4);
+        gap: var(--space-3);
         align-items: center;
         font-size: 0.875rem;
     }
     
     .status-badge {
-        background: rgba(255, 255, 255, 0.2);
+        background: var(--gray-100);
+        color: var(--gray-700);
         padding: var(--space-1) var(--space-3);
         border-radius: var(--radius);
-        backdrop-filter: blur(10px);
+        border: 1px solid var(--gray-200);
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    
+    .status-badge:hover {
+        background: var(--gray-50);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-sm);
     }
     
     .status-badge.success {
-        background: rgba(16, 185, 129, 0.9);
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+        border-color: rgba(16, 185, 129, 0.2);
     }
     
     .status-badge.error {
-        background: rgba(239, 68, 68, 0.9);
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--error);
+        border-color: rgba(239, 68, 68, 0.2);
     }
     
-    /* Sidebar Styling - Simplified */
+    /* Sidebar Styling - Always Visible */
     .css-1d391kg {
         background: linear-gradient(180deg, var(--gray-50) 0%, var(--gray-100) 100%);
         border-right: 1px solid var(--gray-200);
+    }
+    
+    /* Force sidebar to always be visible */
+    section[data-testid="stSidebar"] {
+        width: 300px !important;
+        min-width: 300px !important;
+        max-width: 300px !important;
+        transform: translateX(0px) !important;
+        visibility: visible !important;
+        display: block !important;
+    }
+    
+    /* Hide sidebar collapse button */
+    button[kind="header"] {
+        display: none !important;
+    }
+    
+    /* Ensure main content adjusts for always-visible sidebar */
+    .main .block-container {
+        padding-left: 1rem !important;
+        max-width: calc(100vw - 320px) !important;
+    }
+    
+    /* Alternative sidebar selectors for different Streamlit versions */
+    .css-1d391kg,
+    .css-1y4p8pa,
+    .css-6qob1r,
+    section[data-testid="stSidebar"] > div {
+        transform: translateX(0px) !important;
+        visibility: visible !important;
+    }
+    
+    /* Hide the sidebar toggle chevron */
+    .css-1rs6os .css-17ziqus,
+    .css-1rs6os .css-1vbd788 {
+        display: none !important;
     }
     
     /* 3-Column Layout */
@@ -231,39 +302,75 @@ st.markdown("""
         background: linear-gradient(135deg, #fefefe 0%, #f9fafb 100%);
     }
     
-    /* Cards - Clean and modern */
+    /* Modern Card Components */
     .persona-preview {
         background: white;
         padding: var(--space-6);
-        border-radius: var(--radius);
+        border-radius: var(--radius-lg);
         border: 1px solid var(--gray-200);
-        margin: var(--space-3) 0;
+        margin: var(--space-4) 0;
         box-shadow: var(--shadow-sm);
-        transition: all 0.2s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
     }
     
     .persona-preview:hover {
-        box-shadow: var(--shadow);
-        transform: translateY(-1px);
+        box-shadow: var(--shadow-lg);
+        transform: translateY(-2px);
+        border-color: var(--gray-300);
+    }
+    
+    .persona-preview::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .persona-preview:hover::before {
+        opacity: 1;
     }
     
     .example-persona {
         background: white;
-        padding: var(--space-4);
-        border-radius: var(--radius);
+        padding: var(--space-5);
+        border-radius: var(--radius-lg);
         border: 1px solid var(--gray-200);
-        border-left: 4px solid var(--primary);
-        margin: var(--space-2) 0;
+        margin: var(--space-3) 0;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: var(--shadow-sm);
         font-size: 0.875rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .example-persona::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: linear-gradient(180deg, var(--primary) 0%, var(--primary-light) 100%);
+        transition: all 0.3s ease;
     }
     
     .example-persona:hover {
-        transform: translateY(-1px);
-        box-shadow: var(--shadow);
-        border-left-color: var(--primary-light);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--gray-300);
+    }
+    
+    .example-persona:hover::before {
+        width: 6px;
+        background: linear-gradient(180deg, var(--primary-light) 0%, var(--primary-lighter) 100%);
     }
     
     /* Chat styling - Compact */
@@ -297,35 +404,63 @@ st.markdown("""
         margin-right: var(--space-6);
     }
     
-    /* Metrics cards - Compact */
+    /* Modern Metric Cards */
     .metric-card {
         background: white;
-        padding: var(--space-4);
-        border-radius: var(--radius);
+        padding: var(--space-6);
+        border-radius: var(--radius-lg);
         border: 1px solid var(--gray-200);
-        margin: var(--space-2) 0;
+        margin: var(--space-3) 0;
         box-shadow: var(--shadow-sm);
         color: var(--gray-900);
-        transition: all 0.2s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .metric-card:hover {
+        box-shadow: var(--shadow-md);
+        transform: translateY(-1px);
+        border-color: var(--gray-300);
+    }
+    
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .metric-card:hover::before {
+        opacity: 1;
     }
     
     .metric-card h4 {
-        margin: 0 0 var(--space-2) 0;
+        margin: 0 0 var(--space-3) 0;
         font-size: 0.875rem;
         color: var(--gray-600);
+        font-weight: 500;
+        letter-spacing: 0.025em;
     }
     
     .metric-card h2 {
         margin: 0;
-        font-size: 1.5rem;
+        font-size: 1.75rem;
         font-weight: 700;
         color: var(--primary);
+        letter-spacing: -0.025em;
     }
     
     .metric-card p {
-        margin: var(--space-1) 0 0 0;
+        margin: var(--space-2) 0 0 0;
         font-size: 0.75rem;
         color: var(--gray-500);
+        line-height: 1.4;
     }
     
     .sentiment-positive {
@@ -343,34 +478,94 @@ st.markdown("""
         background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
     }
     
-    /* Buttons - Compact */
+    /* Modern Subtle Buttons */
     .stButton > button {
-        background: var(--primary);
-        color: white;
-        border: none;
-        border-radius: var(--radius);
-        padding: var(--space-2) var(--space-4);
+        background: white;
+        color: var(--gray-700);
+        border: 1px solid var(--gray-300);
+        border-radius: var(--radius-md);
+        padding: var(--space-3) var(--space-6);
         font-weight: 500;
         font-size: 0.875rem;
         transition: all 0.2s ease;
         box-shadow: var(--shadow-sm);
         width: 100%;
+        position: relative;
+        overflow: hidden;
     }
     
     .stButton > button:hover {
-        background: var(--primary-light);
+        background: var(--gray-50);
+        border-color: var(--gray-400);
+        color: var(--gray-900);
         transform: translateY(-1px);
         box-shadow: var(--shadow);
     }
     
-    /* Form inputs - Compact */
+    /* Primary button variant */
+    .stButton > button[type="primary"],
+    .stButton > button[data-testid="baseButton-primary"]:not([class*="nav-bar"]) {
+        background: var(--primary) !important;
+        color: white !important;
+        border: 1px solid var(--primary) !important;
+        font-weight: 600 !important;
+    }
+    
+    .stButton > button[type="primary"]:hover,
+    .stButton > button[data-testid="baseButton-primary"]:not([class*="nav-bar"]):hover {
+        background: var(--primary-light) !important;
+        border-color: var(--primary-light) !important;
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md) !important;
+    }
+    
+    /* Secondary/outline button variant */
+    .stButton > button[data-testid="baseButton-secondary"]:not([class*="nav-bar"]) {
+        background: transparent !important;
+        color: var(--primary) !important;
+        border: 1px solid var(--primary) !important;
+    }
+    
+    .stButton > button[data-testid="baseButton-secondary"]:not([class*="nav-bar"]):hover {
+        background: var(--primary) !important;
+        color: white !important;
+    }
+    
+    /* Modern Form Inputs */
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea,
     .stSelectbox > div > div {
         font-size: 0.875rem;
-        border: 1px solid var(--gray-200);
-        border-radius: var(--radius);
-        box-shadow: var(--shadow-sm);
+        border: 1px solid var(--gray-300) !important;
+        border-radius: var(--radius-md) !important;
+        box-shadow: var(--shadow-sm) !important;
+        transition: all 0.2s ease !important;
+        background: white !important;
+        padding: var(--space-3) !important;
+    }
+    
+    .stTextInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus,
+    .stSelectbox > div > div:focus-within {
+        border-color: var(--primary) !important;
+        box-shadow: 0 0 0 3px rgba(2, 6, 63, 0.1) !important;
+        outline: none !important;
+    }
+    
+    .stTextInput > div > div > input:hover,
+    .stTextArea > div > div > textarea:hover,
+    .stSelectbox > div > div:hover {
+        border-color: var(--gray-400) !important;
+    }
+    
+    /* Enhanced form labels */
+    .stTextInput > label,
+    .stTextArea > label,
+    .stSelectbox > label {
+        font-weight: 500 !important;
+        color: var(--gray-700) !important;
+        font-size: 0.875rem !important;
+        margin-bottom: var(--space-2) !important;
     }
     
     /* Scrollbars */
@@ -402,7 +597,146 @@ st.markdown("""
     .main {
         overflow: hidden;
     }
+    
+    /* Modern Card Container Classes */
+    .card {
+        background: white;
+        border: 1px solid var(--gray-200);
+        border-radius: var(--radius-lg);
+        padding: var(--space-6);
+        box-shadow: var(--shadow-sm);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .card:hover {
+        box-shadow: var(--shadow-md);
+        transform: translateY(-1px);
+        border-color: var(--gray-300);
+    }
+    
+    .card-header {
+        margin-bottom: var(--space-4);
+        padding-bottom: var(--space-3);
+        border-bottom: 1px solid var(--gray-100);
+    }
+    
+    .card-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin: 0;
+        letter-spacing: -0.025em;
+    }
+    
+    .card-description {
+        font-size: 0.875rem;
+        color: var(--gray-600);
+        margin: var(--space-1) 0 0 0;
+        line-height: 1.5;
+    }
+    
+    /* Subtle accent borders */
+    .card-accent-top::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
+        opacity: 0.8;
+    }
+    
+    .card-accent-left::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: linear-gradient(180deg, var(--primary) 0%, var(--primary-light) 100%);
+        opacity: 0.8;
+    }
+    
+    /* Grid layouts */
+    .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--space-4);
+    }
+    
+    .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--space-4);
+    }
+    
+    .grid-4 {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--space-4);
+    }
+    
+    @media (max-width: 768px) {
+        .grid-2, .grid-3, .grid-4 {
+            grid-template-columns: 1fr;
+        }
+        
+        /* On mobile, allow sidebar to be smaller but still visible */
+        section[data-testid="stSidebar"] {
+            width: 250px !important;
+            min-width: 250px !important;
+            max-width: 250px !important;
+        }
+        
+        .main .block-container {
+            max-width: calc(100vw - 270px) !important;
+        }
+    }
 </style>
+
+<script>
+// Force sidebar to stay open
+document.addEventListener('DOMContentLoaded', function() {
+    // Hide sidebar toggle button if it exists
+    const toggleButton = document.querySelector('button[kind="header"]');
+    if (toggleButton) {
+        toggleButton.style.display = 'none';
+    }
+    
+    // Ensure sidebar is always expanded
+    const sidebar = document.querySelector('section[data-testid="stSidebar"]');
+    if (sidebar) {
+        sidebar.style.transform = 'translateX(0px)';
+        sidebar.style.visibility = 'visible';
+        sidebar.style.display = 'block';
+    }
+});
+
+// Monitor for dynamic changes and maintain sidebar visibility
+const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+        const toggleButton = document.querySelector('button[kind="header"]');
+        if (toggleButton) {
+            toggleButton.style.display = 'none';
+        }
+        
+        const sidebar = document.querySelector('section[data-testid="stSidebar"]');
+        if (sidebar) {
+            sidebar.style.transform = 'translateX(0px)';
+            sidebar.style.visibility = 'visible';
+            sidebar.style.display = 'block';
+        }
+    });
+});
+
+observer.observe(document.body, {
+    childList: true,
+    subtree: true
+});
+</script>
 """, unsafe_allow_html=True)
 
 # Example personas data
@@ -1147,27 +1481,49 @@ def render_step0_define_demographics():
         }
     }
     
-    # Display demographic templates in grid
-    demo_cols = st.columns(2)
-    demo_list = list(DEMOGRAPHIC_TEMPLATES.items())
+    # Display demographic templates in compact table
+    # Prepare data for table display
+    table_data = []
+    for demo_name, demo_data in DEMOGRAPHIC_TEMPLATES.items():
+        table_data.append({
+            "Segment": demo_name,
+            "Age": demo_data['age_range'],
+            "Income": demo_data['income_level'],
+            "Key Motivations": ", ".join(demo_data['key_motivations'][:2]),
+            "Description": demo_data['segment_description'][:80] + "..." if len(demo_data['segment_description']) > 80 else demo_data['segment_description']
+        })
     
-    for i, (demo_name, demo_data) in enumerate(demo_list):
-        col = demo_cols[i % 2]
-        
-        with col:
-            with st.container():
-                st.markdown(f"**{demo_name}**")
-                st.markdown(f"**Age:** {demo_data['age_range']} | **Income:** {demo_data['income_level']}")
-                st.markdown(f"_{demo_data['segment_description'][:120]}..._")
-                st.markdown(f"**Key Motivations:** {', '.join(demo_data['key_motivations'][:3])}")
-                
-                if st.button(f"Select {demo_name}", key=f"demo_select_{i}", use_container_width=True):
-                    st.session_state.target_demographics = demo_data.copy()
-                    st.session_state.target_demographics['segment_name'] = demo_name
-                    st.success(f"✅ {demo_name} demographics selected!")
-                    # Auto-generate personas for this demographic
-                    generate_personas_for_demographic(demo_data, demo_name)
-                    st.rerun()
+    df = pd.DataFrame(table_data)
+    
+    # Display table with selection
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Segment": st.column_config.TextColumn("Segment", width="medium"),
+            "Age": st.column_config.TextColumn("Age", width="small"),
+            "Income": st.column_config.TextColumn("Income", width="medium"),
+            "Key Motivations": st.column_config.TextColumn("Key Motivations", width="medium"),
+            "Description": st.column_config.TextColumn("Description", width="large")
+        }
+    )
+    
+    # Selection buttons in a compact row
+    st.markdown("**Select a demographic template:**")
+    cols = st.columns(len(DEMOGRAPHIC_TEMPLATES))
+    
+    for i, (demo_name, demo_data) in enumerate(DEMOGRAPHIC_TEMPLATES.items()):
+        with cols[i]:
+            # Extract emoji and short name for button
+            button_label = demo_name.split()[0] + " " + demo_name.split()[1] if len(demo_name.split()) > 1 else demo_name
+            if st.button(button_label, key=f"demo_select_{i}", use_container_width=True):
+                st.session_state.target_demographics = demo_data.copy()
+                st.session_state.target_demographics['segment_name'] = demo_name
+                st.success(f"✅ {demo_name} demographics selected!")
+                # Auto-generate personas for this demographic
+                generate_personas_for_demographic(demo_data, demo_name)
+                st.rerun()
     
     # Option 2: Custom Demographics
     st.markdown("#### ✏️ Or Define Custom Demographics")
