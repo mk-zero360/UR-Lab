@@ -1284,11 +1284,11 @@ def render_nav_bar():
                 status_text = "Pending"
             
             st.markdown(f"""
-            <div style="text-align: center; padding: 10px; border-radius: 8px; background: {'#f0f9ff' if is_current else '#f8fafc'};">
-                <div style="font-size: 24px;">{status_icon}</div>
-                <div style="font-size: 12px; font-weight: 600; margin: 5px 0;">Step {i}</div>
-                <div style="font-size: 10px; color: #64748b;">{step_name}</div>
-                <div style="font-size: 9px; color: #9ca3af;">{status_text}</div>
+            <div style="text-align: center; padding: 15px; border-radius: 12px; background: {'#f0f9ff' if is_current else '#f8fafc'}; border: {'2px solid #3b82f6' if is_current else '1px solid #e2e8f0'};">
+                <div style="font-size: 32px; margin-bottom: 8px;">{status_icon}</div>
+                <div style="font-size: 16px; font-weight: 700; margin: 8px 0;">Step {i + 1}</div>
+                <div style="font-size: 14px; color: #64748b; font-weight: 500;">{step_name}</div>
+                <div style="font-size: 12px; color: #9ca3af; margin-top: 4px;">{status_text}</div>
             </div>
             """, unsafe_allow_html=True)
     
@@ -1296,10 +1296,10 @@ def render_nav_bar():
     step_cols = st.columns(4)
     
     step_buttons = [
-        ("Step 0: Target Demographics", 0, "👥"),
-        ("Step 1: Define Product", 1, "🚀"),
-        ("Step 2: Generate Interviews", 2, "🤖"),
-        ("Step 3: Analyze Results", 3, "📊")
+        ("Step 1: Target Demographics", 0, "👥"),
+        ("Step 2: Define Product", 1, "🚀"),
+        ("Step 3: Generate Interviews", 2, "🤖"),
+        ("Step 4: Analyze Results", 3, "📊")
     ]
     
     for i, (label, step_num, emoji) in enumerate(step_buttons):
@@ -1314,7 +1314,7 @@ def render_nav_bar():
             elif is_current:
                 button_type = "primary"
                 disabled = False
-            elif step_num == 0:  # Step 0 is always available
+            elif step_num == 0:  # Step 1 is always available
                 button_type = "secondary"
                 disabled = False
             elif step_num > 0 and st.session_state.flow_completed[step_num - 1]:  # Previous step completed
@@ -1372,7 +1372,7 @@ def render_sidebar_stats():
                 st.metric("Avg Conviction", f"{avg_conviction:.1%}")
         else:
             st.markdown("#### ℹ️ Getting Started")
-            st.info("Define your target demographics in Step 0 to begin autonomous research.")
+            st.info("Define your target demographics in Step 1 to begin autonomous research.")
         
         # Current interview status
         if st.session_state.research_active:
@@ -1417,13 +1417,11 @@ def render_main_content():
 
 
 def render_step0_define_demographics():
-    """Step 0: Define Target Demographics and Assemble Personas"""
-    st.markdown("## Step 0: Define Target Demographics & Segment 👥")
+    """Step 1: Define Target Demographics and Assemble Personas"""
+    st.markdown("## Step 1: Define Target Demographics & Segment 👥")
     st.markdown("Define your target user demographics and segment. AI will assemble a representative group of personas based on your specifications.")
     
     # Demographics Definition
-    st.markdown("### 🎯 Target Demographics")
-    
     # Option 1: Quick Demographic Templates
     st.markdown("#### 🚀 Quick Demographic Templates")
     st.markdown("Select from pre-defined demographic segments:")
@@ -1646,7 +1644,7 @@ def render_step0_define_demographics():
         col1, col2, col3 = st.columns([1, 1, 1])
         with col3:
             if st.session_state.assembled_personas:
-                if st.button("➡️ Continue to Step 1: Define Product", type="primary", use_container_width=True):
+                if st.button("➡️ Continue to Step 2: Define Product", type="primary", use_container_width=True):
                     st.session_state.flow_completed[0] = True
                     st.session_state.current_step = 1
                     st.rerun()
@@ -1739,38 +1737,38 @@ Make each persona unique while staying within the demographic parameters. Focus 
         st.session_state.assembled_personas = fallback_personas
 
 def render_step1_define_product():
-    """Step 1: Define Product for Autonomous Research"""
-    st.markdown("## Step 1: Define Product to Test 🚀")
+    """Step 2: Define Product for Autonomous Research"""
+    st.markdown("## Step 2: Define Product to Test 🚀")
     st.markdown("Define the product you want to test with autonomous AI-generated interviews. The system will create diverse personas and conduct interviews automatically.")
     
     # Option 1: Quick Products
     st.markdown("### 🚀 Quick Product Templates")
-    st.markdown("Select from pre-defined zero360 products:")
+    st.markdown("Select from pre-defined products:")
     
     DEFAULT_PRODUCTS = {
         "🏠 FlexSpace System": {
-            "name": "zero360 FlexSpace System",
+            "name": "FlexSpace System",
             "description": "Modulares Duschsystem mit magnetischer Wandschiene, das sich an verändernde Lebenssituationen anpasst. Komponenten können werkzeuglos angebracht werden - von Handbrausen auf Kinderhöhe bis zu Duschsitzen mit Haltegriffen.",
             "value_prop": "Maximale Flexibilität durch modularen Aufbau. Passt sich an alle Lebensphasen an - von der ersten Wohnung bis zum altersgerechten Bad.",
             "target_market": "Mieter, junge Familien, Menschen in Veränderungsphasen",
             "key_features": ["Magnetische Wandschiene", "Werkzeuglose Montage", "Modulare Komponenten", "Höhenverstellbar"]
         },
         "🤖 AIR System": {
-            "name": "zero360 AIR (Adaptive Intelligent Room)",
+            "name": "AIR (Adaptive Intelligent Room)",
             "description": "Intelligentes Badezimmersystem mit dezenten Sensoren in den Armaturen. Erfasst Nutzungsmuster, analysiert Wasserqualität in Echtzeit und optimiert selbstständig.",
             "value_prop": "KI-gesteuerte Optimierung des gesamten Badezimmers. Automatische Anpassung an Nutzergewohnheiten, präventive Wartung und professionelle Datenanalyse.",
             "target_market": "Luxussegment, Hotels, technikaffine Haushalte",
             "key_features": ["KI-gesteuerte Optimierung", "Echtzeitanalyse", "Präventive Wartung", "Personalisierte Einstellungen"]
         },
         "🔗 Connect Hub": {
-            "name": "zero360 Connect Hub",
+            "name": "Connect Hub",
             "description": "Zentrale Steuereinheit, die alle Wasseranwendungen im Haus intelligent vernetzt. Überwacht Verbrauch, erkennt Leckagen und optimiert Wassertemperatur.",
             "value_prop": "Ein Gerät revolutioniert das gesamte Wassermanagement. Intelligente Vernetzung aller Geräte mit präventiver Wartung.",
             "target_market": "Hausmodernisierer, Smart Home Enthusiasten",
             "key_features": ["Zentrale Steuerung", "Leckage-Erkennung", "Verbrauchsoptimierung", "Smart Home Integration"]
         },
         "🌱 PureFlow System": {
-            "name": "zero360 PureFlow System",
+            "name": "PureFlow System",
             "description": "Revolutionäres Dreifachsystem für nachhaltiges Wassermanagement mit Recycling. Filtert, reinigt und bereitet Wasser für verschiedene Anwendungen auf.",
             "value_prop": "Nachhaltigkeit ohne Verzicht. Massive Kosteneinsparungen bei reduziertem CO2-Fußabdruck.",
             "target_market": "Umweltbewusste Familien, Nachhaltigkeits-orientierte Haushalte",
@@ -1868,30 +1866,30 @@ def render_step1_define_product():
         # Navigation buttons
         col1, col2, col3 = st.columns([1, 1, 1])
         with col3:
-            if st.button("➡️ Continue to Step 2: Generate Interviews", type="primary", use_container_width=True):
+            if st.button("➡️ Continue to Step 3: Generate Interviews", type="primary", use_container_width=True):
                 st.session_state.current_step = 2
                 st.rerun()
 
 def render_step2_generate_interviews():
-    """Step 2: Generate Autonomous Interviews"""
-    st.markdown("## Step 2: Generate Autonomous Interviews 🤖")
+    """Step 3: Generate Autonomous Interviews"""
+    st.markdown("## Step 3: Generate Autonomous Interviews 🤖")
     st.markdown("Generate and run up to 10 autonomous interviews with AI-created personas. Each interview will test your product with different user types.")
     
     # Check prerequisites
     if not st.session_state.target_demographics:
-        st.error("⚠️ Please complete Step 0 first - define target demographics.")
+        st.error("⚠️ Please complete Step 1 first - define target demographics.")
         col1, col2, col3 = st.columns([1, 1, 1])
         with col1:
-            if st.button("⬅️ Back to Step 0", use_container_width=True, type="primary"):
+            if st.button("⬅️ Back to Step 1", use_container_width=True, type="primary"):
                 st.session_state.current_step = 0
                 st.rerun()
         return
     
     if not st.session_state.current_product:
-        st.error("⚠️ Please complete Step 1 first - define a product to test.")
+        st.error("⚠️ Please complete Step 2 first - define a product to test.")
         col1, col2, col3 = st.columns([1, 1, 1])
         with col1:
-            if st.button("⬅️ Back to Step 1", use_container_width=True, type="primary"):
+            if st.button("⬅️ Back to Step 2", use_container_width=True, type="primary"):
                 st.session_state.current_step = 1
                 st.rerun()
         return
@@ -2001,14 +1999,14 @@ def render_step2_generate_interviews():
     col1, col2, col3 = st.columns([1, 1, 1])
     
     with col1:
-        if st.button("⬅️ Back to Step 1", use_container_width=True):
+        if st.button("⬅️ Back to Step 2", use_container_width=True):
             st.session_state.current_step = 1
             st.rerun()
     
     with col3:
         # Only allow proceeding if we have at least one completed interview
         if completed_interviews > 0:
-            if st.button("➡️ Continue to Step 3: Analyze", type="primary", use_container_width=True):
+            if st.button("➡️ Continue to Step 4: Analyze", type="primary", use_container_width=True):
                 st.session_state.current_step = 3
                 st.session_state.flow_completed[1] = True
                 st.rerun()
@@ -2147,16 +2145,16 @@ def generate_all_interviews(product: Dict, num_interviews: int, questions_per_in
         st.rerun()
 
 def render_step3_analyze_results():
-    """Step 3: Analyze Autonomous Interview Results"""
-    st.markdown("## Step 3: Analyze Interview Results 📊")
+    """Step 4: Analyze Autonomous Interview Results"""
+    st.markdown("## Step 4: Analyze Interview Results 📊")
     st.markdown("Analyze and compare results from your autonomous interviews to gain comprehensive insights about your product.")
     
     # Check if we have any interviews
     if not st.session_state.autonomous_interviews:
-        st.error("⚠️ No interviews found. Please complete Step 2 first.")
+        st.error("⚠️ No interviews found. Please complete Step 3 first.")
         col1, col2, col3 = st.columns([1, 1, 1])
         with col1:
-            if st.button("⬅️ Back to Step 2", use_container_width=True, type="primary"):
+            if st.button("⬅️ Back to Step 3", use_container_width=True, type="primary"):
                 st.session_state.current_step = 2
                 st.rerun()
         return
@@ -2165,10 +2163,10 @@ def render_step3_analyze_results():
     completed_interviews = [i for i in st.session_state.autonomous_interviews if i['status'] == 'completed']
     
     if not completed_interviews:
-        st.warning("⚠️ No completed interviews yet. Please wait for interviews to finish or go back to Step 2.")
+        st.warning("⚠️ No completed interviews yet. Please wait for interviews to finish or go back to Step 3.")
         col1, col2, col3 = st.columns([1, 1, 1])
         with col1:
-            if st.button("⬅️ Back to Step 2", use_container_width=True, type="primary"):
+            if st.button("⬅️ Back to Step 3", use_container_width=True, type="primary"):
                 st.session_state.current_step = 2
                 st.rerun()
         return
@@ -2219,7 +2217,7 @@ def render_step3_analyze_results():
     col1, col2, col3 = st.columns([1, 1, 1])
     
     with col1:
-        if st.button("⬅️ Back to Step 2", use_container_width=True):
+        if st.button("⬅️ Back to Step 3", use_container_width=True):
             st.session_state.current_step = 2
             st.rerun()
     
