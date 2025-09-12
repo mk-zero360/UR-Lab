@@ -17,7 +17,6 @@ try:
     AUDIO_AVAILABLE = True
 except ImportError:
     AUDIO_AVAILABLE = False
-    st.warning("⚠️ Audio-Recorder nicht verfügbar. Installiere: pip install audio-recorder-streamlit")
 
 # Import OpenAI and load environment variables
 import openai
@@ -36,13 +35,13 @@ OPENAI_AVAILABLE = bool(OPENAI_API_KEY)
 
 # Page config
 st.set_page_config(
-    page_title="zero360 User Research Lab",
-    page_icon="🔬",
+    page_title="zero360 Autonomous Research Lab",
+    page_icon="🤖",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
-# Custom CSS for zero360 brand colors - Stripe-inspired design
+# Custom CSS for 3-column layout with left navigation
 st.markdown("""
 <style>
     /* zero360 Brand Colors - Official Palette */
@@ -104,150 +103,229 @@ st.markdown("""
         /* Typography */
         --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
-        
-        /* Legacy aliases for compatibility */
-        --zero360-blue: var(--primary);
-        --zero360-light-blue: var(--primary-lighter);
-        --zero360-silver: var(--gray-300);
-        --zero360-dark-grey: var(--gray-800);
-        --zero360-light-grey: var(--gray-100);
-        --zero360-accent: var(--primary-lighter);
     }
     
-    /* Global styles - Stripe inspired */
-    * {
-        font-family: var(--font-family);
+    /* Remove default Streamlit padding and margins */
+    .main .block-container {
+        padding-top: 0.5rem;
+        padding-bottom: 1rem;
+        max-width: none;
     }
     
-    body {
-        background-color: var(--gray-50);
-        color: var(--gray-900);
-        line-height: 1.6;
-    }
-    
-    /* Main header - Clean and minimal */
+    /* Hide the main header/hero banner */
     .main-header {
+        display: none;
+    }
+    
+    /* Compact Navigation Bar */
+    .nav-bar {
         background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
         color: white;
-        padding: var(--space-16) var(--space-8);
-        margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-4)) var(--space-12) calc(-1 * var(--space-4));
+        padding: var(--space-3) var(--space-4);
+        margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-4)) var(--space-4) calc(-1 * var(--space-4));
         border-radius: 0;
-        box-shadow: var(--shadow-lg);
+        box-shadow: var(--shadow-md);
         position: relative;
-        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 60px;
     }
     
-    .main-header::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
-        pointer-events: none;
+    /* Navigation buttons styling */
+    .nav-buttons {
+        display: flex;
+        gap: var(--space-2);
+        align-items: center;
     }
     
-    .main-header h1 {
-        font-size: 3rem;
+    /* Enhanced button styling for navigation */
+    .stButton > button[data-testid="baseButton-primary"] {
+        background: var(--primary) !important;
+        border: 2px solid var(--accent) !important;
+        color: white !important;
+        font-weight: 600 !important;
+    }
+    
+    .stButton > button[data-testid="baseButton-secondary"] {
+        background: rgba(255, 255, 255, 0.1) !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        color: white !important;
+    }
+    
+    .nav-bar h1 {
+        font-size: 1.5rem;
         font-weight: 700;
-        margin: 0 0 var(--space-4) 0;
+        margin: 0;
         letter-spacing: -0.025em;
-        position: relative;
-        z-index: 1;
     }
     
-    .main-header p {
+    .nav-bar .status-indicator {
+        display: flex;
+        gap: var(--space-4);
+        align-items: center;
+        font-size: 0.875rem;
+    }
+    
+    .status-badge {
+        background: rgba(255, 255, 255, 0.2);
+        padding: var(--space-1) var(--space-3);
+        border-radius: var(--radius);
+        backdrop-filter: blur(10px);
+    }
+    
+    .status-badge.success {
+        background: rgba(16, 185, 129, 0.9);
+    }
+    
+    .status-badge.error {
+        background: rgba(239, 68, 68, 0.9);
+    }
+    
+    /* Sidebar Styling - Simplified */
+    .css-1d391kg {
+        background: linear-gradient(180deg, var(--gray-50) 0%, var(--gray-100) 100%);
+        border-right: 1px solid var(--gray-200);
+    }
+    
+    /* 3-Column Layout */
+    .three-column-container {
+        display: grid;
+        grid-template-columns: 1fr 2fr 1fr;
+        gap: var(--space-6);
+        min-height: calc(100vh - 120px);
+    }
+    
+    .column {
+        background: white;
+        border-radius: var(--radius-lg);
+        padding: var(--space-6);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--gray-200);
+        overflow-y: auto;
+        max-height: calc(100vh - 140px);
+    }
+    
+    .column h3 {
+        color: var(--primary);
+        margin-top: 0;
+        margin-bottom: var(--space-4);
         font-size: 1.25rem;
-        font-weight: 400;
-        margin: 0;
-        opacity: 0.9;
-        position: relative;
-        z-index: 1;
+        font-weight: 600;
+        border-bottom: 2px solid var(--gray-100);
+        padding-bottom: var(--space-2);
+    }
+    
+    /* Left Column - Configuration */
+    .left-column {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+    
+    /* Center Column - Main Content */
+    .center-column {
+        background: white;
+    }
+    
+    /* Right Column - Analytics */
+    .right-column {
+        background: linear-gradient(135deg, #fefefe 0%, #f9fafb 100%);
     }
     
     /* Cards - Clean and modern */
     .persona-preview {
         background: white;
-        padding: var(--space-8);
-        border-radius: var(--radius-lg);
+        padding: var(--space-6);
+        border-radius: var(--radius);
         border: 1px solid var(--gray-200);
-        margin: var(--space-6) 0;
-        box-shadow: var(--shadow);
+        margin: var(--space-3) 0;
+        box-shadow: var(--shadow-sm);
         transition: all 0.2s ease;
     }
     
     .persona-preview:hover {
-        box-shadow: var(--shadow-md);
+        box-shadow: var(--shadow);
         transform: translateY(-1px);
     }
     
     .example-persona {
         background: white;
-        padding: var(--space-6);
+        padding: var(--space-4);
         border-radius: var(--radius);
         border: 1px solid var(--gray-200);
         border-left: 4px solid var(--primary);
-        margin: var(--space-3) 0;
+        margin: var(--space-2) 0;
         cursor: pointer;
         transition: all 0.2s ease;
         box-shadow: var(--shadow-sm);
+        font-size: 0.875rem;
     }
     
     .example-persona:hover {
         transform: translateY(-1px);
-        box-shadow: var(--shadow-md);
+        box-shadow: var(--shadow);
         border-left-color: var(--primary-light);
-        border-color: var(--gray-300);
     }
     
-    /* Chat styling - Clean and minimal */
+    /* Chat styling - Compact */
     .chat-container {
-        background: white;
-        border-radius: var(--radius-lg);
-        padding: var(--space-6);
-        margin: var(--space-6) 0;
-        max-height: 500px;
+        background: var(--gray-50);
+        border-radius: var(--radius);
+        padding: var(--space-4);
+        margin: var(--space-4) 0;
+        max-height: 400px;
         overflow-y: auto;
         border: 1px solid var(--gray-200);
-        box-shadow: var(--shadow);
     }
     
     .chat-message {
-        padding: var(--space-4);
-        margin: var(--space-3) 0;
+        padding: var(--space-3);
+        margin: var(--space-2) 0;
         border-radius: var(--radius);
-        animation: fadeIn 0.2s ease-in;
+        font-size: 0.875rem;
     }
     
     .user-message {
-        background: var(--gray-50);
+        background: white;
         border: 1px solid var(--gray-200);
-        margin-left: var(--space-12);
+        margin-left: var(--space-6);
         color: var(--gray-900);
     }
     
     .ai-message {
         background: var(--primary);
         color: white;
-        margin-right: var(--space-12);
+        margin-right: var(--space-6);
     }
     
-    /* Metrics cards - Clean design */
+    /* Metrics cards - Compact */
     .metric-card {
         background: white;
-        padding: var(--space-6);
+        padding: var(--space-4);
         border-radius: var(--radius);
         border: 1px solid var(--gray-200);
-        margin: var(--space-3) 0;
+        margin: var(--space-2) 0;
         box-shadow: var(--shadow-sm);
         color: var(--gray-900);
         transition: all 0.2s ease;
     }
     
-    .metric-card:hover {
-        box-shadow: var(--shadow);
-        transform: translateY(-1px);
+    .metric-card h4 {
+        margin: 0 0 var(--space-2) 0;
+        font-size: 0.875rem;
+        color: var(--gray-600);
+    }
+    
+    .metric-card h2 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary);
+    }
+    
+    .metric-card p {
+        margin: var(--space-1) 0 0 0;
+        font-size: 0.75rem;
+        color: var(--gray-500);
     }
     
     .sentiment-positive {
@@ -265,214 +343,40 @@ st.markdown("""
         background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
     }
     
-    /* Animations */
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    
-    /* Tab styling - Clean and modern */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: var(--space-2);
-        background: var(--gray-100);
-        padding: var(--space-2);
-        border-radius: var(--radius);
-        border: 1px solid var(--gray-200);
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        padding: var(--space-3) var(--space-6);
-        border-radius: var(--radius-sm);
-        color: var(--gray-700);
-        background: transparent;
-        border: none;
-        font-weight: 500;
-        transition: all 0.2s ease;
-    }
-    
-    .stTabs [data-baseweb="tab"]:hover {
-        background: white;
-        color: var(--gray-900);
-    }
-    
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        background: white;
-        color: var(--primary);
-        box-shadow: var(--shadow-sm);
-    }
-    
-    /* Buttons - Stripe style */
+    /* Buttons - Compact */
     .stButton > button {
         background: var(--primary);
         color: white;
         border: none;
         border-radius: var(--radius);
-        padding: var(--space-3) var(--space-6);
+        padding: var(--space-2) var(--space-4);
         font-weight: 500;
         font-size: 0.875rem;
         transition: all 0.2s ease;
         box-shadow: var(--shadow-sm);
+        width: 100%;
     }
     
     .stButton > button:hover {
         background: var(--primary-light);
         transform: translateY(-1px);
-        box-shadow: var(--shadow-md);
-    }
-    
-    .stButton > button:active {
-        transform: translateY(0);
-        box-shadow: var(--shadow-sm);
-    }
-    
-    /* Compact button styling for template selection */
-    .stButton > button[title] {
-        padding: var(--space-2) var(--space-4);
-        font-size: 0.8rem;
-        min-height: 2.5rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    
-    /* Compact persona template buttons */
-    .persona-template-button {
-        background: white;
-        border: 1px solid var(--gray-200);
-        border-radius: var(--radius);
-        padding: var(--space-3) var(--space-4);
-        margin: var(--space-2) 0;
-        transition: all 0.2s ease;
-        cursor: pointer;
-        text-align: center;
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: var(--gray-900);
-        box-shadow: var(--shadow-sm);
-        min-height: 2.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .persona-template-button:hover {
-        background: var(--gray-50);
-        border-color: var(--primary);
-        transform: translateY(-1px);
         box-shadow: var(--shadow);
     }
     
-    /* Success/Info messages - Clean design */
-    .stSuccess {
-        background-color: #f0fdf4;
-        border: 1px solid #bbf7d0;
-        border-left: 4px solid var(--success);
-        color: var(--gray-900);
-        border-radius: var(--radius);
-    }
-    
-    .stInfo {
-        background-color: #f0f9ff;
-        border: 1px solid #bae6fd;
-        border-left: 4px solid var(--info);
-        color: var(--gray-900);
-        border-radius: var(--radius);
-    }
-    
-    .stWarning {
-        background-color: #fffbeb;
-        border: 1px solid #fed7aa;
-        border-left: 4px solid var(--warning);
-        color: var(--gray-900);
-        border-radius: var(--radius);
-    }
-    
-    /* Streamlit metrics - Clean design */
-    [data-testid="metric-container"] {
-        background: white;
-        border: 1px solid var(--gray-200);
-        border-radius: var(--radius);
-        padding: var(--space-6);
-        box-shadow: var(--shadow-sm);
-        transition: all 0.2s ease;
-    }
-    
-    [data-testid="metric-container"]:hover {
-        box-shadow: var(--shadow);
-    }
-    
-    [data-testid="metric-container"] > div {
-        color: var(--gray-900);
-    }
-    
-    /* Sidebar styling */
-    .css-1d391kg {
-        background-color: var(--gray-50);
-    }
-    
-    /* Voice recorder button styling */
-    .audio-recorder {
-        background: var(--primary) !important;
-        border-radius: 50% !important;
-        box-shadow: var(--shadow-sm) !important;
-    }
-    
-    /* Toggle switches */
-    .stToggle > div {
-        background-color: var(--gray-300);
-        border-radius: var(--radius);
-    }
-    
-    .stToggle > div[data-checked="true"] {
-        background-color: var(--primary);
-    }
-    
-    /* Question suggestion buttons - Clean design */
-    .question-button {
-        background: white;
-        border: 1px solid var(--gray-200);
-        border-radius: var(--radius);
-        padding: var(--space-4);
-        margin: var(--space-2) 0;
-        transition: all 0.2s ease;
-        cursor: pointer;
-        text-align: left;
-        font-size: 0.875rem;
-        color: var(--gray-900);
-        box-shadow: var(--shadow-sm);
-    }
-    
-    .question-button:hover {
-        background: var(--gray-50);
-        border-color: var(--primary);
-        transform: translateY(-1px);
-        box-shadow: var(--shadow);
-    }
-    
-    /* Additional modern styling */
+    /* Form inputs - Compact */
+    .stTextInput > div > div > input,
+    .stTextArea > div > div > textarea,
     .stSelectbox > div > div {
-        background-color: white;
+        font-size: 0.875rem;
         border: 1px solid var(--gray-200);
         border-radius: var(--radius);
         box-shadow: var(--shadow-sm);
     }
     
-    .stTextInput > div > div > input {
-        border: 1px solid var(--gray-200);
-        border-radius: var(--radius);
-        box-shadow: var(--shadow-sm);
-    }
-    
-    .stTextArea > div > div > textarea {
-        border: 1px solid var(--gray-200);
-        border-radius: var(--radius);
-        box-shadow: var(--shadow-sm);
-    }
-    
-    /* Clean scrollbars */
+    /* Scrollbars */
     ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
+        width: 4px;
+        height: 4px;
     }
     
     ::-webkit-scrollbar-track {
@@ -487,6 +391,16 @@ st.markdown("""
     
     ::-webkit-scrollbar-thumb:hover {
         background: var(--gray-400);
+    }
+    
+    /* Hide Streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Make content fit without scrolling */
+    .main {
+        overflow: hidden;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -573,79 +487,225 @@ DEMO_RESPONSES = {
         "Die Technologie ist beeindruckend, aber wird sie auch in zehn Jahren noch zeitgemäß sein?",
         "Können Sie mir Referenzen von vergleichbaren Projekten zeigen? Ich kenne die meisten Premium-Anbieter.",
         "Das Design gefällt mir, aber wie sieht es mit der handwerklichen Perfektion aus? Ich dulde keine Kompromisse bei der Qualität."
-    ],
-    "Architektin": [
-        "Interessant! Haben Sie auch detaillierte CAD-Daten und BIM-Modelle für meine Planungsarbeit?",
-        "Wie sind die Lieferzeiten? Meine Projekte haben straffe Zeitpläne und ich brauche Verlässlichkeit.",
-        "Das Produkt sieht gut aus, aber wie integriert es sich in mein Gesamtkonzept? Funktionalität ist entscheidend.",
-        "Gibt es technische Beratung für komplexe Installationen? Ich arbeite oft an anspruchsvollen Projekten.",
-        "Welche Zertifizierungen hat das Produkt? Nachhaltigkeit wird bei meinen Kunden immer wichtiger."
-    ],
-    "Installateur": [
-        "Das sieht gut aus, aber wie kompliziert ist die Installation? Zeit ist Geld in meinem Geschäft.",
-        "Wie sieht es mit der Verfügbarkeit von Ersatzteilen aus? Ich kann mir keine langen Wartezeiten bei Reparaturen leisten.",
-        "Was ist die Marge für mich als Fachbetrieb? Ich muss auch von meiner Arbeit leben können.",
-        "Gibt es Schulungen für meine Mitarbeiter? Neue Technik muss richtig installiert werden.",
-        "Wie oft gibt es Reklamationen? Mein Ruf hängt davon ab, dass alles funktioniert."
-    ],
-    "Modernisiererin": [
-        "Das gefällt mir! Aber wie viel kostet das ungefähr? Unser Budget ist leider begrenzt.",
-        "Passt das zu unseren bestehenden Installationen? Wir können nicht alles neu machen.",
-        "Ist das wirklich pflegeleicht? Mit vier Personen im Haushalt muss alles praktisch sein.",
-        "Wie lange hält das? Wir wollen nicht in fünf Jahren schon wieder renovieren müssen.",
-        "Ist das wassersparend? Die Nebenkosten werden immer höher und wir wollen nachhaltig leben."
-    ],
-    "Rentner": [
-        "Das ist interessant, aber ist das auch einfach zu bedienen? Meine Frau hat Probleme mit komplizierten Armaturen.",
-        "Wie sicher ist das? Wir werden nicht jünger und Stürze im Bad sind gefährlich.",
-        "Sieht das aus wie ein Krankenhaus? Wir wollen keine Pflege-Atmosphäre in unserem Zuhause.",
-        "Ist das eine gute Investition für die nächsten zwanzig Jahre? In unserem Alter überlegt man zweimal.",
-        "Gibt es Zuschüsse von der Pflegekasse dafür? Die Bürokratie ist so kompliziert geworden."
-    ],
-    "Familienpaar": [
-        "Das könnte unseren Morgenstress wirklich reduzieren! Aber ist das auch robust genug für drei Kinder?",
-        "Wie teuer wird das insgesamt? Mit drei Kindern müssen wir jeden Euro zweimal umdrehen.",
-        "Ist das wassersparend? Die Kinder lassen gerne mal das Wasser laufen.",
-        "Kann man das leicht sauber halten? Bei fünf Personen ist Hygiene ein Dauerthema.",
-        "Wächst das mit den Kindern mit? Der Kleine ist erst vier und braucht noch Hilfe."
-    ],
-    "Berufseinsteiger": [
-        "Cool! Aber ehrlich gesagt ist mein Budget ziemlich knapp. Gibt es das auch günstiger?",
-        "Passt das in mein kleines Bad? Ich habe nur 55 Quadratmeter insgesamt.",
-        "Kann ich das selbst installieren? YouTube-Tutorials schaue ich gerne.",
-        "Ist das instagrammable? Meine erste eigene Wohnung soll schon was hermachen.",
-        "Kann ich das mitnehmen, wenn ich umziehe? Ich weiß noch nicht, wie lange ich hier bleibe."
     ]
 }
 
-# Initialize session state
+# Initialize session state for autonomous research
 def initialize_session_state():
     defaults = {
-        'chat_history': [],
-        'current_persona': {},
-        'product_info': {},
-        'insights': [],
-        'metrics': {
-            'sentiment_score': 0.5,
-            'conviction_level': 0.5,
-            'main_concerns': []
-        },
+        # Autonomous interview system
+        'autonomous_interviews': [],  # List of completed autonomous interviews
+        'current_product': {},  # Single product to test across all interviews
+        'research_active': False,
+        'interviews_completed': 0,
+        'max_interviews': 10,
+        
+        # Current single interview (for monitoring)
+        'current_interview': None,
+        'current_interview_id': None,
+        
+        # UI state
+        'current_step': 0,  # 0: Demographics, 1: Define Product, 2: Generate Interviews, 3: Analyze Results
+        'flow_completed': [False, False, False, False],
+        
+        # New: Target demographics and personas
+        'target_demographics': {},
+        'assembled_personas': [],
+        
+        # Legacy (for backward compatibility during transition)
         'demo_mode': False,
-        'interview_active': False,
-        'voice_mode': False,
-        'last_ai_response': '',
-        'audio_playing': False
+        'voice_mode': False
     }
     
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
 
+# Autonomous Interview Generation
+def generate_diverse_persona() -> Dict:
+    """Generate a diverse persona using AI"""
+    if not OPENAI_AVAILABLE:
+        # Fallback to predefined personas
+        personas = list(EXAMPLE_PERSONAS.values())
+        return random.choice(personas)
+    
+    try:
+        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": """You are a persona generator for user research. Create diverse, realistic personas for bathroom/sanitary product research.
+
+Generate a JSON object with these exact fields:
+- name: Full name (German)
+- age: Age between 25-70
+- job: Job title
+- company: Company description
+- experience: Background and experience with bathroom products/renovations
+- pain_points: Current challenges and frustrations
+- goals: What they want to achieve
+- personality: Communication style and decision-making approach
+
+Make each persona unique with different demographics, life situations, and perspectives. Focus on realistic German customers."""},
+                {"role": "user", "content": "Generate a unique persona for bathroom product research."}
+            ],
+            max_tokens=800,
+            temperature=0.9  # High temperature for diversity
+        )
+        
+        import json
+        persona_text = response.choices[0].message.content.strip()
+        # Extract JSON from response if wrapped in markdown
+        if "```json" in persona_text:
+            persona_text = persona_text.split("```json")[1].split("```")[0]
+        elif "```" in persona_text:
+            persona_text = persona_text.split("```")[1]
+            
+        persona = json.loads(persona_text)
+        return persona
+        
+    except Exception as e:
+        st.error(f"Error generating persona: {str(e)}")
+        # Fallback to predefined personas
+        personas = list(EXAMPLE_PERSONAS.values())
+        return random.choice(personas)
+
+def generate_interview_questions(persona: Dict, product: Dict, num_questions: int = 8) -> List[str]:
+    """Generate diverse interview questions for a persona and product"""
+    if not OPENAI_AVAILABLE:
+        return [
+            f"Was ist Ihr erster Eindruck vom {product.get('name', 'Produkt')}?",
+            "Welche Bedenken hätten Sie bei der Anschaffung?",
+            "Wie würde das Ihren Alltag verändern?",
+            "Was ist Ihnen bei Badezimmerprodukten am wichtigsten?",
+            "Haben Sie schon mal ähnliche Produkte verwendet?",
+            "Welche Probleme soll das Produkt für Sie lösen?",
+            "Würden Sie das weiterempfehlen?",
+            "Was fehlt Ihnen noch für eine Kaufentscheidung?"
+        ]
+    
+    try:
+        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": f"""You are a user research expert. Generate {num_questions} diverse, open-ended interview questions in German.
+
+Persona: {persona.get('name', 'Person')} - {persona.get('job', 'Professional')}
+Product: {product.get('name', 'Product')}
+
+Questions should:
+1. Explore different aspects (needs, concerns, usage, decision-making)
+2. Be open-ended and conversational
+3. Uncover deep insights about the persona's perspective
+4. Be appropriate for this specific persona's background
+5. Be in German
+
+Return ONLY a JSON array of question strings, no other text."""},
+                {"role": "user", "content": f"Generate {num_questions} interview questions for this persona and product combination."}
+            ],
+            max_tokens=600,
+            temperature=0.8
+        )
+        
+        import json
+        questions_text = response.choices[0].message.content.strip()
+        # Extract JSON from response if wrapped in markdown
+        if "```json" in questions_text:
+            questions_text = questions_text.split("```json")[1].split("```")[0]
+        elif "```" in questions_text:
+            questions_text = questions_text.split("```")[1]
+            
+        questions = json.loads(questions_text)
+        return questions
+        
+    except Exception as e:
+        st.error(f"Error generating questions: {str(e)}")
+        return [
+            f"Was ist Ihr erster Eindruck vom {product.get('name', 'Produkt')}?",
+            "Welche Bedenken hätten Sie bei der Anschaffung?",
+            "Wie würde das Ihren Alltag verändern?"
+        ]
+
+def conduct_autonomous_interview(persona: Dict, product: Dict, questions: List[str]) -> Dict:
+    """Conduct a full autonomous interview with a persona"""
+    interview_data = {
+        'id': f"interview_{len(st.session_state.autonomous_interviews) + 1}",
+        'persona': persona,
+        'product': product,
+        'timestamp': datetime.now(),
+        'conversation': [],
+        'metrics': {
+            'sentiment_score': 0.5,
+            'conviction_level': 0.5,
+            'main_concerns': []
+        },
+        'status': 'running'
+    }
+    
+    # Simulate conversation
+    for i, question in enumerate(questions):
+        # Add question
+        interview_data['conversation'].append({
+            'role': 'user',
+            'content': question,
+            'timestamp': datetime.now()
+        })
+        
+        # Get AI response
+        ai_response = get_openai_response(question, persona, product)
+        interview_data['conversation'].append({
+            'role': 'assistant',
+            'content': ai_response,
+            'timestamp': datetime.now()
+        })
+        
+        # Update progress
+        progress = (i + 1) / len(questions)
+        if 'progress_placeholder' in st.session_state:
+            st.session_state.progress_placeholder.progress(progress, f"Question {i+1}/{len(questions)}")
+    
+    # Calculate final metrics
+    interview_data['metrics'] = calculate_interview_metrics(interview_data['conversation'])
+    interview_data['status'] = 'completed'
+    
+    return interview_data
+
+def calculate_interview_metrics(conversation: List[Dict]) -> Dict:
+    """Calculate metrics for a completed interview"""
+    ai_messages = [msg['content'] for msg in conversation if msg['role'] == 'assistant']
+    
+    if not ai_messages:
+        return {
+            'sentiment_score': 0.5,
+            'conviction_level': 0.5,
+            'main_concerns': []
+        }
+    
+    # Calculate average sentiment
+    sentiments = [analyze_sentiment(msg) for msg in ai_messages]
+    avg_sentiment = sum(sentiments) / len(sentiments)
+    
+    # Calculate conviction level
+    conviction = calculate_conviction(conversation)
+    
+    # Extract concerns from all messages
+    all_concerns = []
+    for msg in ai_messages:
+        all_concerns.extend(extract_concerns(msg))
+    
+    return {
+        'sentiment_score': avg_sentiment,
+        'conviction_level': conviction,
+        'main_concerns': list(set(all_concerns))
+    }
+
 # AI Response Functions
 def get_openai_response(message: str, persona: Dict, product: Dict) -> str:
     """Get response from OpenAI API"""
     if not OPENAI_AVAILABLE:
-        st.error("🚨 OpenAI API Key nicht gefunden! Bitte .env Datei mit OPENAI_API_KEY erstellen.")
         return "Entschuldigung, ich kann momentan nicht antworten. Bitte überprüfen Sie die API-Konfiguration."
     
     try:
@@ -667,57 +727,7 @@ def get_openai_response(message: str, persona: Dict, product: Dict) -> str:
         return response.choices[0].message.content.strip()
     
     except Exception as e:
-        st.error(f"🚨 OpenAI API Fehler: {str(e)}")
         return f"Entschuldigung, es gab einen Fehler bei der Verbindung zur API: {str(e)}"
-
-def get_demo_response(persona_type: str) -> str:
-    """Get demo response based on persona type"""
-    persona_key = next((key for key in DEMO_RESPONSES.keys() if key in persona_type), "Marketing Manager")
-    return random.choice(DEMO_RESPONSES[persona_key])
-
-# Voice Functions
-def transcribe_audio(audio_bytes) -> str:
-    """Transcribe audio using OpenAI Whisper"""
-    if not OPENAI_AVAILABLE:
-        return "Audio-Transkription nicht verfügbar - OpenAI API Key fehlt."
-    
-    try:
-        client = openai.OpenAI(api_key=OPENAI_API_KEY)
-        
-        # Create a file-like object from audio bytes
-        audio_file = io.BytesIO(audio_bytes)
-        audio_file.name = "audio.wav"
-        
-        response = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file
-        )
-        
-        return response.text.strip()
-    
-    except Exception as e:
-        st.error(f" Whisper Fehler: {str(e)}")
-        return f"Transkriptionsfehler: {str(e)}"
-
-def text_to_speech(text: str) -> bytes:
-    """Convert text to speech using OpenAI TTS"""
-    if not OPENAI_AVAILABLE:
-        return None
-    
-    try:
-        client = openai.OpenAI(api_key=OPENAI_API_KEY)
-        
-        response = client.audio.speech.create(
-            model="tts-1",
-            voice="alloy",  # You can change this to nova, shimmer, etc.
-            input=text[:4000]  # TTS has character limits
-        )
-        
-        return response.content
-    
-    except Exception as e:
-        st.error(f"🚨 TTS Fehler: {str(e)}")
-        return None
 
 def create_persona_prompt(persona: Dict, product: Dict) -> str:
     """Create detailed persona prompt following best practices"""
@@ -827,194 +837,7 @@ Sie befinden sich in einem User Research Interview. Reagieren Sie natürlich auf
 Bleiben Sie immer in Ihrer Rolle. Falls Fragen außerhalb Ihres Expertisebereichs gestellt werden, verweisen Sie höflich auf Ihre spezifische Perspektive.
 """
 
-# Interview Question Suggestions
-def generate_adaptive_questions(persona: Dict, product: Dict, chat_history: List[Dict]) -> List[str]:
-    """Generate 3 adaptive interview questions based on persona, product and conversation context"""
-    
-    persona_name = persona.get('name', 'Person')
-    product_name = product.get('name', 'Produkt')
-    
-    # Analyze conversation context
-    conversation_topics = []
-    last_responses = []
-    
-    # Get last few AI responses to understand conversation flow
-    for message in chat_history[-6:]:  # Last 6 messages (3 pairs)
-        if message['role'] == 'assistant':
-            last_responses.append(message['content'].lower())
-    
-    # Extract topics mentioned
-    context_keywords = {
-        'price': ['preis', 'kosten', 'budget', 'geld', 'teuer', 'günstig', 'investition'],
-        'installation': ['installation', 'montage', 'einbau', 'handwerker', 'selbst'],
-        'technology': ['technologie', 'digital', 'smart', 'app', 'bedienung'],
-        'design': ['design', 'aussehen', 'optik', 'stil', 'farbe'],
-        'sustainability': ['nachhaltigkeit', 'umwelt', 'energie', 'wasser', 'sparen'],
-        'family': ['familie', 'kinder', 'alltag', 'morgen', 'stress'],
-        'quality': ['qualität', 'robust', 'langlebig', 'haltbar', 'zuverlässig'],
-        'comparison': ['vergleich', 'konkurrenz', 'alternative', 'unterschied'],
-        'concerns': ['bedenken', 'problem', 'schwierig', 'sorge', 'risiko'],
-        'benefits': ['vorteil', 'nutzen', 'hilft', 'besser', 'verbessert']
-    }
-    
-    for topic, keywords in context_keywords.items():
-        for response in last_responses:
-            if any(keyword in response for keyword in keywords):
-                conversation_topics.append(topic)
-                break
-    
-    # Generate context-aware questions
-    if len(chat_history) <= 2:  # First questions
-        return get_initial_questions(persona_name, product_name)
-    
-    # Adaptive questions based on conversation flow
-    questions = []
-    
-    # If price was discussed, ask about value/ROI
-    if 'price' in conversation_topics:
-        if "Thomas Richter" in persona_name:
-            questions.append(f"Welche Zusatzleistungen würden den Preis für das {product_name} rechtfertigen?")
-        elif "Lukas Bauer" in persona_name:
-            questions.append(f"Gibt es Finanzierungsmöglichkeiten für das {product_name}?")
-        else:
-            questions.append(f"Was müsste das {product_name} leisten, um den Preis zu rechtfertigen?")
-    
-    # If installation was discussed, ask about service/support
-    if 'installation' in conversation_topics:
-        questions.append(f"Welche Art von Support erwarten Sie nach der Installation?")
-    
-    # If technology was discussed, ask about future features
-    if 'technology' in conversation_topics:
-        questions.append(f"Welche zusätzlichen smarten Funktionen wären für Sie interessant?")
-    
-    # If concerns were raised, ask about solutions
-    if 'concerns' in conversation_topics:
-        questions.append(f"Was könnte Ihre Bedenken bezüglich {product_name} ausräumen?")
-    
-    # If benefits were discussed, ask for specifics
-    if 'benefits' in conversation_topics:
-        questions.append(f"Welcher Vorteil vom {product_name} ist für Sie am wichtigsten?")
-    
-    # Add persona-specific follow-ups
-    persona_questions = get_persona_followup_questions(persona_name, product_name, conversation_topics)
-    questions.extend(persona_questions)
-    
-    # Fill with general follow-ups if needed
-    general_followups = [
-        f"Wie würden Sie das {product_name} Ihren Freunden beschreiben?",
-        f"Was wäre Ihr nächster Schritt bezüglich {product_name}?",
-        f"Welche Fragen haben Sie noch zum {product_name}?",
-        f"Wie wichtig ist Ihnen die Marke zero360 bei dieser Entscheidung?",
-        f"Würden Sie das {product_name} weiterempfehlen?"
-    ]
-    
-    # Add general questions if we don't have enough specific ones
-    for q in general_followups:
-        if len(questions) < 3:
-            questions.append(q)
-    
-    return questions[:3]  # Return exactly 3 questions
-
-def get_initial_questions(persona_name: str, product_name: str) -> List[str]:
-    """Get initial questions for first interaction"""
-    
-    if "Thomas Richter" in persona_name:  # Luxus-Bauherr
-        return [
-            f"Entspricht das {product_name} Ihren Premium-Ansprüchen für die Villa?",
-            f"Wie wichtig ist Ihnen die Exklusivität gegenüber Standardlösungen?",
-            f"Welche Rolle spielt die Zukunftssicherheit der Technologie für Sie?"
-        ]
-    elif "Julia Schneider" in persona_name:  # Architektin
-        return [
-            f"Wie würden Sie das {product_name} in Ihre Hotelprojekte integrieren?",
-            f"Welche technischen Daten benötigen Sie für die Planungsarbeit?",
-            f"Wie bewerten Sie die Nachhaltigkeit für Ihre Zertifizierungen?"
-        ]
-    elif "Michael Wagner" in persona_name:  # Installateur
-        return [
-            f"Wie kompliziert ist die Installation vom {product_name}?",
-            f"Welche Marge können Sie als Fachbetrieb damit erzielen?",
-            f"Wie ist die Verfügbarkeit von Ersatzteilen und Service?"
-        ]
-    elif "Anna Bergmann" in persona_name:  # Modernisiererin
-        return [
-            f"Passt das {product_name} zu Ihren bestehenden Installationen?",
-            f"Wie rechtfertigen Sie die Investition gegenüber günstigeren Alternativen?",
-            f"Welche Auswirkungen hat das auf Ihre laufende Hausrenovierung?"
-        ]
-    elif "Werner Hoffmann" in persona_name:  # Rentner
-        return [
-            f"Ist das {product_name} auch für ältere Menschen einfach zu bedienen?",
-            f"Wie sicher fühlen Sie sich mit dieser neuen Technologie?",
-            f"Rechtfertigt sich die Investition für die nächsten 20 Jahre?"
-        ]
-    elif "Sandra & Marco" in persona_name:  # Familie
-        return [
-            f"Wie würde das {product_name} unseren Morgenstress mit drei Kindern reduzieren?",
-            f"Ist das robust genug für den täglichen Familienalltag?",
-            f"Können wir uns das mit unserem Familienbudget leisten?"
-        ]
-    elif "Lukas Bauer" in persona_name:  # Berufseinsteiger
-        return [
-            f"Passt das {product_name} in meine kleine Wohnung und mein Budget?",
-            f"Kann ich das selbst installieren oder brauche ich einen Handwerker?",
-            f"Ist das auch für junge Leute wie mich relevant?"
-        ]
-    else:
-        return [
-            f"Was ist Ihr erster Eindruck vom {product_name}?",
-            f"Welche Bedenken hätten Sie bei der Anschaffung?",
-            f"Wie würde das Ihren Alltag verändern?"
-        ]
-
-def get_persona_followup_questions(persona_name: str, product_name: str, topics: List[str]) -> List[str]:
-    """Get persona-specific follow-up questions based on conversation topics"""
-    
-    questions = []
-    
-    if "Thomas Richter" in persona_name:  # Luxus-Bauherr
-        if 'quality' in topics:
-            questions.append(f"Welche Premium-Features sind für Sie unverzichtbar?")
-        if 'design' in topics:
-            questions.append(f"Wie wichtig ist die Designsprache für Ihre Villa?")
-    
-    elif "Julia Schneider" in persona_name:  # Architektin
-        if 'sustainability' in topics:
-            questions.append(f"Welche Zertifizierungen benötigen Sie für Ihre Projekte?")
-        if 'technology' in topics:
-            questions.append(f"Wie integrieren Sie smarte Lösungen in Ihre Planungen?")
-    
-    elif "Michael Wagner" in persona_name:  # Installateur
-        if 'installation' in topics:
-            questions.append(f"Welche Schulungen bräuchten Sie für das {product_name}?")
-        if 'price' in topics:
-            questions.append(f"Wie kalkulieren Sie solche Premium-Produkte?")
-    
-    elif "Anna Bergmann" in persona_name:  # Modernisiererin
-        if 'comparison' in topics:
-            questions.append(f"Mit welchen Produkten vergleichen Sie das {product_name}?")
-        if 'quality' in topics:
-            questions.append(f"Wie wichtig ist die Langlebigkeit bei Ihrer Renovierung?")
-    
-    elif "Werner Hoffmann" in persona_name:  # Rentner
-        if 'technology' in topics:
-            questions.append(f"Benötigen Sie Unterstützung bei der Bedienung?")
-        if 'family' in topics:
-            questions.append(f"Sollen Ihre Kinder das auch nutzen können?")
-    
-    elif "Sandra & Marco" in persona_name:  # Familie
-        if 'family' in topics:
-            questions.append(f"Wie erklären Sie den Kindern die neue Technik?")
-        if 'benefits' in topics:
-            questions.append(f"Welcher Zeitgewinn wäre für euch am wertvollsten?")
-    
-    elif "Lukas Bauer" in persona_name:  # Berufseinsteiger
-        if 'price' in topics:
-            questions.append(f"Würden Sie das auf Raten kaufen?")
-        if 'technology' in topics:
-            questions.append(f"Welche Apps oder Features nutzen Sie am meisten?")
-    
-    return questions
+# Removed old question generation functions - now using AI-generated questions in autonomous research
 
 # Analytics Functions
 def analyze_sentiment(text: str) -> float:
@@ -1078,682 +901,1279 @@ def calculate_conviction(chat_history: List) -> float:
     
     return min(positive_indicators / max(total_messages, 1), 1.0)
 
-# UI Components
-def render_persona_builder():
-    """Render the persona builder interface"""
-    st.header("👤 Persona Builder")
-    
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.subheader("🎯 Quick Select")
-        
-        # Quick select buttons
-        for emoji_name, persona_data in EXAMPLE_PERSONAS.items():
-            if st.button(f"{emoji_name}", key=f"quick_{emoji_name}", use_container_width=True):
-                st.session_state.current_persona = persona_data.copy()
-                st.success(f"✅ {persona_data['name']} ausgewählt!")
-                st.rerun()
-        
-        st.divider()
-        
-        st.subheader("🛠️ Custom Persona")
-        
-        # Custom persona form
-        name = st.text_input("👤 Name", value=st.session_state.current_persona.get('name', ''))
-        age = st.slider("🎂 Alter", 20, 65, st.session_state.current_persona.get('age', 35))
-        job = st.text_input("💼 Job Titel", value=st.session_state.current_persona.get('job', ''))
-        company = st.text_input("🏢 Unternehmen", value=st.session_state.current_persona.get('company', ''))
-        experience = st.text_area("📈 Erfahrung", value=st.session_state.current_persona.get('experience', ''))
-        pain_points = st.text_area("😣 Pain Points", value=st.session_state.current_persona.get('pain_points', ''))
-        goals = st.text_area("🎯 Ziele", value=st.session_state.current_persona.get('goals', ''))
-        personality = st.text_area("🧠 Persönlichkeit", value=st.session_state.current_persona.get('personality', ''))
-        
-        if st.button("💾 Persona speichern", type="primary"):
-            st.session_state.current_persona = {
-                'name': name,
-                'age': age,
-                'job': job,
-                'company': company,
-                'experience': experience,
-                'pain_points': pain_points,
-                'goals': goals,
-                'personality': personality
-            }
-            st.success("✅ Persona gespeichert!")
-    
-    with col2:
-        st.subheader("👁️ Live Vorschau")
-        
-        if st.session_state.current_persona:
-            persona = st.session_state.current_persona
-            st.markdown(f"""
-            <div class="persona-preview">
-                <h3>🎭 {persona.get('name', 'Unbekannt')}</h3>
-                <p><strong>📋 Position:</strong> {persona.get('job', 'N/A')} bei {persona.get('company', 'N/A')}</p>
-                <p><strong>🎂 Alter:</strong> {persona.get('age', 'N/A')} Jahre</p>
-                <p><strong>📚 Erfahrung:</strong> {persona.get('experience', 'Keine Angabe')}</p>
-                <p><strong>😣 Hauptprobleme:</strong> {persona.get('pain_points', 'Keine Angabe')}</p>
-                <p><strong>🎯 Ziele:</strong> {persona.get('goals', 'Keine Angabe')}</p>
-                <p><strong>🧠 Persönlichkeit:</strong> {persona.get('personality', 'Keine Angabe')}</p>
+# Removed old manual interview functions - now using autonomous research
+
+# New: Autonomous Research Navigation Bar
+def render_nav_bar():
+    """Render navigation bar for autonomous research flow"""
+    st.markdown(f"""
+    <div class="nav-bar">
+        <h1>🤖 zero360 Autonomous Research Lab</h1>
+        <div class="status-indicator">
+            <div class="status-badge {'success' if OPENAI_AVAILABLE else 'error'}">
+                {'✅ AI Ready' if OPENAI_AVAILABLE else '⚠️ API Key Missing'}
             </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.info("👆 Wähle oder erstelle eine Persona für die Vorschau")
-
-def render_product_config():
-    """Render product configuration"""
-    st.header("🚀 Produkt Konfiguration")
-    
-    # Default products data
-    DEFAULT_PRODUCTS = {
-        "🏠 FlexSpace System": {
-            "name": "zero360 FlexSpace System",
-            "description": "Modulares Duschsystem mit magnetischer Wandschiene, das sich an verändernde Lebenssituationen anpasst. Komponenten können werkzeuglos angebracht werden - von Handbrausen auf Kinderhöhe bis zu Duschsitzen mit Haltegriffen. Jedes Modul kommuniziert über NFC und passt automatisch Wasserdruck und Temperatur an.",
-            "value_prop": "Maximale Flexibilität durch modularen Aufbau. Passt sich an alle Lebensphasen an - von der ersten Wohnung bis zum altersgerechten Bad. Module sind mietbar für maximale Kostenflexibilität.",
-            "target_market": "Mieter, junge Familien, Menschen in Veränderungsphasen"
-        },
-        "🤖 AIR System": {
-            "name": "zero360 AIR (Adaptive Intelligent Room)",
-            "description": "Intelligentes Badezimmersystem mit dezenten Sensoren in den Armaturen. Erfasst Nutzungsmuster, analysiert Wasserqualität in Echtzeit und optimiert selbstständig. Lernt Familienroutinen und bereitet das Bad optimal vor. Generiert automatisch Wartungsprotokolle.",
-            "value_prop": "KI-gesteuerte Optimierung des gesamten Badezimmers. Automatische Anpassung an Nutzergewohnheiten, präventive Wartung und professionelle Datenanalyse für Hotels und Gewerbe.",
-            "target_market": "Luxussegment, Hotels, technikaffine Haushalte"
-        },
-        "🔗 Connect Hub": {
-            "name": "zero360 Connect Hub",
-            "description": "Zentrale Schaltzentrale, die alle Wasseranwendungen im Haus intelligent vernetzt. Kommuniziert mit Waschmaschine, Geschirrspüler und Sanitärarmaturen. Vermeidet Lastspitzen und optimiert Wasserverbrauch. Perfekte Nachrüstlösung für bestehende Häuser.",
-            "value_prop": "Ein Gerät revolutioniert das gesamte Wassermanagement. Intelligente Vernetzung aller Geräte, Lastspitzenmanagement und deutliche Kosteneinsparungen.",
-            "target_market": "Hausmodernisierer, Smart Home Enthusiasten"
-        },
-        "🌱 PureFlow System": {
-            "name": "zero360 PureFlow Kreislaufsystem",
-            "description": "Revolutionäres Dreifach-System für nachhaltiges Wassermanagement: Grauwasser-Recycling für Toilettenspülung, Wärmerückgewinnung aus Duschwasser und intelligenter Durchflussbegrenzer. Spart bis zu 40% Wasser- und Energiekosten.",
-            "value_prop": "Nachhaltigkeit ohne Verzicht - sogar mit verbessertem Komfort. Massive Kosteneinsparungen bei gleichzeitig reduziertem CO2-Fußabdruck. Spielerische Umwelterziehung für Kinder.",
-            "target_market": "Umweltbewusste Familien, Kostenbewusste Haushalte"
-        },
-        "♻️ Infinity Line": {
-            "name": "zero360 Infinity Line",
-            "description": "Kreislaufwirtschaft in Perfektion: Alle Komponenten vollständig recycelbar, modularer Aufbau für einfache Reparaturen. zero360 garantiert Rücknahme mit Bonus-System. Verschleißteile einzeln tauschbar ohne Komplettaustausch der Armatur.",
-            "value_prop": "Echte Nachhaltigkeit mit Zertifikat und finanziellen Vorteilen. Modulares Design reduziert Wartungskosten drastisch. Rücknahme-Garantie mit Bonus schafft Planungssicherheit.",
-            "target_market": "Nachhaltigkeitsbewusste Bauherren, Architekten"
-        },
-        "💚 EcoSense Technology": {
-            "name": "zero360 EcoSense Technology",
-            "description": "Ganzheitliches System macht Wasserverbrauch erlebbar ohne zu bevormunden. Mikroturbinen-Generatoren erzeugen Strom für LED-Anzeigen. Gaming-Elemente und Peer-Vergleiche über App. Automatische Monatsreports zur Amortisationsberechnung.",
-            "value_prop": "Wassersparen wird zum positiven Erlebnis statt Verzicht. Gamification motiviert nachhaltig. Transparente Kostenanalyse zeigt sofort den finanziellen Nutzen.",
-            "target_market": "Digital Natives, kostenbewusste Familien"
-        },
-        "💆 VitalShower System": {
-            "name": "zero360 VitalShower System",
-            "description": "Medizinische Wellness-Dusche kombiniert Licht-, Aroma- und Klangtherapie. Tageszeitabhängige Farbspektren, austauschbare Duftmodule, integrierte Resonanzkörper. Verschiedene Vital-Programme von Energiekick bis Entspannung. Dokumentiert Vitaldaten.",
-            "value_prop": "Private Spa-Behandlung jeden Tag zuhause. Therapeutische Programme für Gesundheit und Wohlbefinden. Personalisierte Wellness-Empfehlungen basierend auf Vitaldaten.",
-            "target_market": "Wellness-orientierte Kunden, Gesundheitsbewusste"
-        },
-        "🛡️ PureGuard System": {
-            "name": "zero360 PureGuard Hygienesystem",
-            "description": "Revolutionäre Badezimmerhygiene durch antimikrobielle Kupfer-Silber-Oberflächen, automatische UV-C-Sterilisation und intelligente Luftführung. KidsProtect-Modus für Familien. Selbstreinigende Funktion eliminiert 99,9% der Bakterien.",
-            "value_prop": "Maximale Hygiene bei minimaler Arbeit. Automatische Keimbekämpfung und kindersichere Bedienung. Weniger putzen bei besserer Sauberkeit.",
-            "target_market": "Familien mit Kindern, Hygiene-bewusste Haushalte"
-        },
-        "🔬 WaterLab Analytics": {
-            "name": "zero360 WaterLab Analytics",
-            "description": "Kompaktes Analysesystem überwacht kontinuierlich Wasserqualität: pH-Wert, Härtegrad, Schwermetalle, Mikroplastik, Bakterien. Aktiviert bei Bedarf verschiedene Filterstufen oder reichert Wasser mit Mineralien an. Warnt vor Medikamenten-Interaktionen.",
-            "value_prop": "Gewissheit über Wasserqualität und automatische Optimierung. Gesundheitsschutz durch Medikamenten-Warnungen. Dokumentation für Vermieter-Gespräche.",
-            "target_market": "Gesundheitsbewusste, Bewohner älterer Gebäude"
-        }
-    }
-    
-    col1, col2 = st.columns([1, 1])
-    
-    with col1:
-        st.subheader("🎯 Produkt-Auswahl")
-        
-        # Quick select buttons for products
-        for emoji_name, product_data in DEFAULT_PRODUCTS.items():
-            if st.button(f"{emoji_name}", key=f"product_{emoji_name}", use_container_width=True):
-                st.session_state.product_info = product_data.copy()
-                st.success(f"✅ {product_data['name']} ausgewählt!")
-                st.rerun()
-        
-        st.divider()
-        
-        st.subheader("🛠️ Custom Produkt")
-        
-        product_name = st.text_input(
-            "🏷️ Produktname", 
-            value=st.session_state.product_info.get('name', '')
-        )
-        
-        product_description = st.text_area(
-            "📋 Beschreibung",
-            value=st.session_state.product_info.get('description', ''),
-            height=100
-        )
-        
-        value_prop = st.text_area(
-            "💎 Value Proposition",
-            value=st.session_state.product_info.get('value_prop', ''),
-            height=100
-        )
-        
-        target_market = st.text_input(
-            "🎯 Zielmarkt",
-            value=st.session_state.product_info.get('target_market', '')
-        )
-        
-        if st.button("💾 Produkt speichern", type="primary"):
-            st.session_state.product_info = {
-                'name': product_name,
-                'description': product_description,
-                'value_prop': value_prop,
-                'target_market': target_market
-            }
-            st.success("✅ Produkt gespeichert!")
-    
-    with col2:
-        st.subheader("👁️ Produkt Übersicht")
-        
-        if st.session_state.product_info:
-            product = st.session_state.product_info
-            st.markdown(f"""
-            <div class="persona-preview">
-                <h3>🚀 {product.get('name', 'Unbenanntes Produkt')}</h3>
-                <p><strong>📋 Beschreibung:</strong><br>{product.get('description', 'Keine Beschreibung')}</p>
-                <p><strong>💎 Value Proposition:</strong><br>{product.get('value_prop', 'Keine Value Prop')}</p>
-                <p><strong>🎯 Zielmarkt:</strong> {product.get('target_market', 'Nicht definiert')}</p>
+            <div class="status-badge">
+                🎯 {st.session_state.interviews_completed}/{st.session_state.max_interviews} Interviews
             </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.info("👆 Konfiguriere dein Produkt für die Übersicht")
-
-def process_user_message(user_input: str):
-    """Process user message and generate AI response"""
-    # Add user message
-    st.session_state.chat_history.append({
-        'role': 'user',
-        'content': user_input,
-        'timestamp': datetime.now()
-    })
-    
-    # Get AI response from OpenAI
-    ai_response = get_openai_response(
-        user_input, 
-        st.session_state.current_persona, 
-        st.session_state.product_info
-    )
-    
-    # Add AI response
-    st.session_state.chat_history.append({
-        'role': 'assistant',
-        'content': ai_response,
-        'timestamp': datetime.now()
-    })
-    
-    # Store last AI response for voice playback
-    st.session_state.last_ai_response = ai_response
-    
-    # Update metrics
-    update_metrics()
-    
-    # Auto-play voice in voice mode
-    if st.session_state.voice_mode and OPENAI_AVAILABLE:
-        with st.spinner("🎵 Generiere Sprachantwort..."):
-            audio_content = text_to_speech(ai_response)
-            if audio_content:
-                st.audio(audio_content, format='audio/mp3', autoplay=True)
-    
-    st.rerun()
-
-def render_chat_interface():
-    """Render the chat interface"""
-    st.header("💬 Interview Chat")
-    
-    # Check if persona and product are configured
-    if not st.session_state.current_persona or not st.session_state.product_info:
-        st.warning("⚠️ Bitte konfiguriere erst eine Persona und ein Produkt in den anderen Tabs!")
-        return
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        # Chat controls
-        col_ctrl1, col_ctrl2, col_ctrl3, col_ctrl4 = st.columns([1, 1, 1, 1])
-        
-        with col_ctrl1:
-            if st.button("🎬 Interview starten" if not st.session_state.interview_active else "🔄 Neu starten"):
-                st.session_state.chat_history = []
-                st.session_state.interview_active = True
-                
-                # Initial persona introduction
-                persona = st.session_state.current_persona
-                
-                # Special handling for couple persona
-                if "Sandra & Marco" in persona.get('name', ''):
-                    intro = f"Hallo! Wir sind {persona.get('name', 'ein Paar')} und arbeiten als {persona.get('job', 'Mitarbeiter')} bei {persona.get('company', 'verschiedenen Unternehmen')}. Wir freuen uns auf unser Gespräch über Ihr Produkt!"
-                else:
-                    intro = f"Hallo! Ich bin {persona.get('name', 'eine Person')} und arbeite als {persona.get('job', 'Mitarbeiter')} bei {persona.get('company', 'einem Unternehmen')}. Ich freue mich auf unser Gespräch über Ihr Produkt!"
-                
-                st.session_state.chat_history.append({
-                    'role': 'assistant',
-                    'content': intro,
-                    'timestamp': datetime.now()
-                })
-                st.session_state.last_ai_response = intro
-                st.rerun()
-        
-        with col_ctrl2:
-            if OPENAI_AVAILABLE and AUDIO_AVAILABLE:
-                voice_mode = st.toggle("🎤 Voice Mode", value=st.session_state.voice_mode)
-                st.session_state.voice_mode = voice_mode
-            elif not AUDIO_AVAILABLE:
-                st.info("📝 Text Only")
-            else:
-                st.error("⚠️ API Key fehlt")
-        
-        with col_ctrl3:
-            if st.session_state.last_ai_response and OPENAI_AVAILABLE:
-                if st.button("🔊 Antwort hören"):
-                    with st.spinner("🎵 Generiere Audio..."):
-                        audio_content = text_to_speech(st.session_state.last_ai_response)
-                        if audio_content:
-                            st.audio(audio_content, format='audio/mp3', autoplay=True)
-        
-        with col_ctrl4:
-            if st.button("🗑️ Chat löschen"):
-                st.session_state.chat_history = []
-                st.session_state.interview_active = False
-                st.session_state.last_ai_response = ''
-                st.rerun()
-        
-        # Chat display
-        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-        
-        for message in st.session_state.chat_history:
-            if message['role'] == 'user':
-                st.markdown(f"""
-                <div class="chat-message user-message">
-                    <strong>🧑‍💼 Sie:</strong><br>
-                    {message['content']}
-                    <small style="color: #666; float: right;">{message['timestamp'].strftime('%H:%M')}</small>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                persona_name = st.session_state.current_persona.get('name', 'Persona')
-                st.markdown(f"""
-                <div class="chat-message ai-message">
-                    <strong>🎭 {persona_name}:</strong><br>
-                    {message['content']}
-                    <small style="color: #666; float: right;">{message['timestamp'].strftime('%H:%M')}</small>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Voice Input Section
-        if st.session_state.interview_active and st.session_state.voice_mode and AUDIO_AVAILABLE:
-            st.subheader("🎤 Voice Input")
-            
-            col_voice1, col_voice2 = st.columns([1, 1])
-            
-            with col_voice1:
-                # Audio recorder
-                audio_bytes = audio_recorder(
-                    text="🎤 Drücken & Sprechen",
-                    recording_color="#e74c3c",
-                    neutral_color="#3498db",
-                    icon_name="microphone",
-                    icon_size="2x",
-                )
-                
-                if audio_bytes:
-                    st.audio(audio_bytes, format="audio/wav")
-                    
-                    # Transcribe audio
-                    with st.spinner("🎯 Transkribiere Audio..."):
-                        transcript = transcribe_audio(audio_bytes)
-                        
-                    if transcript and transcript != "Transkriptionsfehler":
-                        st.success(f"💬 Sie sagten: {transcript}")
-                        
-                        # Process the transcribed text as user input
-                        process_user_message(transcript)
-            
-            with col_voice2:
-                st.info("💡 **Voice Mode aktiv**\n\nDrücken Sie den Mikrofon-Button und sprechen Sie Ihre Frage. Die Antwort wird automatisch vorgelesen.")
-        
-        # Interview Question Suggestions
-        if st.session_state.interview_active and st.session_state.current_persona and st.session_state.product_info:
-            # Show context indicator
-            if len(st.session_state.chat_history) > 2:
-                st.subheader("💡 Adaptive Fragenvorschläge 🔄")
-                st.caption("*Fragen passen sich automatisch an das Gespräch an*")
-            else:
-                st.subheader("💡 Einstiegsfragen")
-                st.caption("*Perfekte Startfragen für Ihr Interview*")
-            
-            # Generate adaptive questions based on conversation context
-            suggested_questions = generate_adaptive_questions(
-                st.session_state.current_persona, 
-                st.session_state.product_info,
-                st.session_state.chat_history
-            )
-            
-            col_q1, col_q2, col_q3 = st.columns(3)
-            
-            with col_q1:
-                if st.button(f"❓ {suggested_questions[0]}", key="q1", use_container_width=True):
-                    process_user_message(suggested_questions[0])
-            
-            with col_q2:
-                if st.button(f"❓ {suggested_questions[1]}", key="q2", use_container_width=True):
-                    process_user_message(suggested_questions[1])
-            
-            with col_q3:
-                if st.button(f"❓ {suggested_questions[2]}", key="q3", use_container_width=True):
-                    process_user_message(suggested_questions[2])
-            
-            # Debug info for workshop demonstration (optional)
-            if len(st.session_state.chat_history) > 2:
-                with st.expander("🔍 Erkannte Gesprächsthemen (Demo-Info)", expanded=False):
-                    # Analyze current conversation topics
-                    conversation_topics = []
-                    last_responses = []
-                    
-                    for message in st.session_state.chat_history[-6:]:
-                        if message['role'] == 'assistant':
-                            last_responses.append(message['content'].lower())
-                    
-                    context_keywords = {
-                        'Preis & Budget': ['preis', 'kosten', 'budget', 'geld', 'teuer', 'günstig', 'investition'],
-                        'Installation': ['installation', 'montage', 'einbau', 'handwerker', 'selbst'],
-                        'Technologie': ['technologie', 'digital', 'smart', 'app', 'bedienung'],
-                        'Design': ['design', 'aussehen', 'optik', 'stil', 'farbe'],
-                        'Nachhaltigkeit': ['nachhaltigkeit', 'umwelt', 'energie', 'wasser', 'sparen'],
-                        'Familie': ['familie', 'kinder', 'alltag', 'morgen', 'stress'],
-                        'Qualität': ['qualität', 'robust', 'langlebig', 'haltbar', 'zuverlässig'],
-                        'Vergleich': ['vergleich', 'konkurrenz', 'alternative', 'unterschied'],
-                        'Bedenken': ['bedenken', 'problem', 'schwierig', 'sorge', 'risiko'],
-                        'Vorteile': ['vorteil', 'nutzen', 'hilft', 'besser', 'verbessert']
-                    }
-                    
-                    detected_topics = []
-                    for topic, keywords in context_keywords.items():
-                        for response in last_responses:
-                            if any(keyword in response for keyword in keywords):
-                                detected_topics.append(topic)
-                                break
-                    
-                    if detected_topics:
-                        st.write("**Aktuelle Themen:** " + " • ".join(detected_topics))
-                    else:
-                        st.write("**Status:** Allgemeine Einstiegsphase")
-            
-            st.markdown("---")
-        
-        # Text Input (always available)
-        if st.session_state.interview_active:
-            input_placeholder = "💭 Ihre eigene Frage an die Persona..." if not st.session_state.voice_mode else "💭 Oder tippen Sie hier..."
-            user_input = st.chat_input(input_placeholder)
-            
-            if user_input:
-                process_user_message(user_input)
-    
-    with col2:
-        render_live_metrics()
-
-def update_metrics():
-    """Update live metrics based on chat history"""
-    if not st.session_state.chat_history:
-        return
-    
-    # Get all AI messages for analysis
-    ai_messages = [msg['content'] for msg in st.session_state.chat_history if msg['role'] == 'assistant']
-    
-    if ai_messages:
-        # Calculate average sentiment
-        sentiments = [analyze_sentiment(msg) for msg in ai_messages]
-        avg_sentiment = sum(sentiments) / len(sentiments)
-        
-        # Calculate conviction level
-        conviction = calculate_conviction(st.session_state.chat_history)
-        
-        # Extract concerns from all messages
-        all_concerns = []
-        for msg in ai_messages:
-            all_concerns.extend(extract_concerns(msg))
-        
-        # Update session state
-        st.session_state.metrics = {
-            'sentiment_score': avg_sentiment,
-            'conviction_level': conviction,
-            'main_concerns': list(set(all_concerns))
-        }
-
-def render_live_metrics():
-    """Render live metrics panel"""
-    st.subheader("📊 Live Metriken")
-    
-    metrics = st.session_state.metrics
-    
-    # Sentiment
-    sentiment = metrics['sentiment_score']
-    sentiment_emoji = "😊" if sentiment > 0.6 else "😐" if sentiment > 0.4 else "😟"
-    sentiment_color = "sentiment-positive" if sentiment > 0.6 else "sentiment-neutral" if sentiment > 0.4 else "sentiment-negative"
-    
-    st.markdown(f"""
-    <div class="metric-card {sentiment_color}">
-        <h4>{sentiment_emoji} Sentiment</h4>
-        <h2>{sentiment:.1%}</h2>
-        <p>Positive Stimmung der Persona</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Conviction Level
-    conviction = metrics['conviction_level']
-    conviction_emoji = "🎯" if conviction > 0.7 else "🤔" if conviction > 0.4 else "❓"
-    
-    st.markdown(f"""
-    <div class="metric-card">
-        <h4>{conviction_emoji} Überzeugungsgrad</h4>
-        <h2>{conviction:.1%}</h2>
-        <p>Interesse am Produkt</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Main Concerns
-    concerns = metrics['main_concerns']
-    
-    st.markdown(f"""
-    <div class="metric-card">
-        <h4>🚨 Hauptbedenken ({len(concerns)})</h4>
-        <div>
-            {' '.join(concerns) if concerns else 'Keine erkannt'}
         </div>
     </div>
     """, unsafe_allow_html=True)
     
-    # Progress Chart
-    if st.session_state.chat_history:
-        st.subheader("📈 Gesprächsverlauf")
-        
-        # Create sentiment timeline
-        timestamps = []
-        sentiment_scores = []
-        
-        for msg in st.session_state.chat_history:
-            if msg['role'] == 'assistant':
-                timestamps.append(msg['timestamp'])
-                sentiment_scores.append(analyze_sentiment(msg['content']))
-        
-        if len(sentiment_scores) > 1:
-            df = pd.DataFrame({
-                'Zeit': timestamps,
-                'Sentiment': sentiment_scores
-            })
-            
-            fig = px.line(
-                df, 
-                x='Zeit', 
-                y='Sentiment',
-                title='Sentiment Verlauf',
-                range_y=[0, 1]
-            )
-            fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
-
-def render_export_tab():
-    """Render export functionality"""
-    st.header("📥 Export & Analyse")
+    # Step-based navigation with progress indicator
+    st.markdown("### 🚀 Autonomous Research Flow")
     
-    if not st.session_state.chat_history:
-        st.info("💡 Führe erst ein Interview, um Daten zu exportieren!")
+    # Progress indicator using Streamlit columns instead of HTML
+    st.markdown("**Progress:**")
+    
+    steps = [
+        ("👥 Demographics", st.session_state.flow_completed[0]),
+        ("🚀 Product", st.session_state.flow_completed[1]),
+        ("🤖 Generate", st.session_state.flow_completed[2]),
+        ("📊 Analyze", st.session_state.flow_completed[3])
+    ]
+    
+    progress_cols = st.columns(4)
+    
+    for i, (step_name, completed) in enumerate(steps):
+        with progress_cols[i]:
+            is_current = st.session_state.current_step == i
+            
+            if completed:
+                status_icon = "✅"
+                status_text = "Complete"
+            elif is_current:
+                status_icon = "🔵"
+                status_text = "Current"
+            else:
+                status_icon = "⚪"
+                status_text = "Pending"
+            
+            st.markdown(f"""
+            <div style="text-align: center; padding: 10px; border-radius: 8px; background: {'#f0f9ff' if is_current else '#f8fafc'};">
+                <div style="font-size: 24px;">{status_icon}</div>
+                <div style="font-size: 12px; font-weight: 600; margin: 5px 0;">Step {i}</div>
+                <div style="font-size: 10px; color: #64748b;">{step_name}</div>
+                <div style="font-size: 9px; color: #9ca3af;">{status_text}</div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # Step navigation buttons
+    step_cols = st.columns(4)
+    
+    step_buttons = [
+        ("Step 0: Target Demographics", 0, "👥"),
+        ("Step 1: Define Product", 1, "🚀"),
+        ("Step 2: Generate Interviews", 2, "🤖"),
+        ("Step 3: Analyze Results", 3, "📊")
+    ]
+    
+    for i, (label, step_num, emoji) in enumerate(step_buttons):
+        with step_cols[i]:
+            is_current = st.session_state.current_step == step_num
+            is_completed = st.session_state.flow_completed[step_num]
+            
+            # Determine button type and availability
+            if is_completed:
+                button_type = "secondary"
+                disabled = False
+            elif is_current:
+                button_type = "primary"
+                disabled = False
+            elif step_num == 0:  # Step 0 is always available
+                button_type = "secondary"
+                disabled = False
+            elif step_num > 0 and st.session_state.flow_completed[step_num - 1]:  # Previous step completed
+                button_type = "secondary"
+                disabled = False
+            else:
+                button_type = "secondary"
+                disabled = True
+            
+            if st.button(f"{emoji} {label}", 
+                        key=f"step_{step_num}", 
+                        use_container_width=True,
+                        type=button_type,
+                        disabled=disabled):
+                st.session_state.current_step = step_num
+                st.rerun()
+    
+    st.markdown("---")
+
+# Sidebar for Autonomous Research Stats
+def render_sidebar_stats():
+    """Render sidebar with autonomous research stats"""
+    with st.sidebar:
+        st.markdown("### 🤖 Autonomous Research")
+        
+        # Current demographics info
+        if st.session_state.target_demographics:
+            st.markdown("#### 👥 Target Demographics")
+            demographics = st.session_state.target_demographics
+            st.info(f"**{demographics.get('segment_name', 'Custom Segment')}**")
+            st.write(f"Age: {demographics.get('age_range', 'Not defined')}")
+            st.write(f"Personas: {len(st.session_state.assembled_personas)}")
+        
+        # Current product info
+        if st.session_state.current_product:
+            st.markdown("#### 🚀 Current Product")
+            product = st.session_state.current_product
+            st.info(f"**{product.get('name', 'Unnamed Product')}**")
+            st.write(f"Target: {product.get('target_market', 'Not defined')}")
+        
+        # Interview progress
+        if st.session_state.autonomous_interviews:
+            st.markdown("#### 📊 Interview Progress")
+            completed = len([i for i in st.session_state.autonomous_interviews if i['status'] == 'completed'])
+            st.metric("Completed Interviews", completed)
+            st.metric("Total Interviews", len(st.session_state.autonomous_interviews))
+            
+            # Quick stats from completed interviews
+            if completed > 0:
+                completed_interviews = [i for i in st.session_state.autonomous_interviews if i['status'] == 'completed']
+                avg_sentiment = sum(i['metrics']['sentiment_score'] for i in completed_interviews) / len(completed_interviews)
+                avg_conviction = sum(i['metrics']['conviction_level'] for i in completed_interviews) / len(completed_interviews)
+                
+                st.metric("Avg Sentiment", f"{avg_sentiment:.1%}")
+                st.metric("Avg Conviction", f"{avg_conviction:.1%}")
+        else:
+            st.markdown("#### ℹ️ Getting Started")
+            st.info("Define your target demographics in Step 0 to begin autonomous research.")
+        
+        # Current interview status
+        if st.session_state.research_active:
+            st.markdown("#### ⚡ Status")
+            st.warning("🔄 Research in progress...")
+            if st.session_state.current_interview:
+                current = st.session_state.current_interview
+                st.write(f"**Current:** {current['persona']['name']}")
+                st.write(f"**Status:** {current['status']}")
+        
+        # Quick actions
+        st.markdown("#### 🔧 Quick Actions")
+        if st.button("🔄 Reset All", use_container_width=True):
+            st.session_state.autonomous_interviews = []
+            st.session_state.current_product = {}
+            st.session_state.target_demographics = {}
+            st.session_state.assembled_personas = []
+            st.session_state.research_active = False
+            st.session_state.interviews_completed = 0
+            st.session_state.current_step = 0
+            st.session_state.flow_completed = [False, False, False, False]
+            st.rerun()
+
+# Removed old column rendering functions - now using autonomous research flow
+
+def render_main_content():
+    """Render main content based on current autonomous research step"""
+    step = st.session_state.current_step
+    
+    if step == 0:
+        render_step0_define_demographics()
+    elif step == 1:
+        render_step1_define_product()
+    elif step == 2:
+        render_step2_generate_interviews()
+    elif step == 3:
+        render_step3_analyze_results()
+    else:
+        # Default to step 0 if no valid step is set
+        st.session_state.current_step = 0
+        render_step0_define_demographics()
+
+
+def render_step0_define_demographics():
+    """Step 0: Define Target Demographics and Assemble Personas"""
+    st.markdown("## Step 0: Define Target Demographics & Segment 👥")
+    st.markdown("Define your target user demographics and segment. AI will assemble a representative group of personas based on your specifications.")
+    
+    # Demographics Definition
+    st.markdown("### 🎯 Target Demographics")
+    
+    # Option 1: Quick Demographic Templates
+    st.markdown("#### 🚀 Quick Demographic Templates")
+    st.markdown("Select from pre-defined demographic segments:")
+    
+    DEMOGRAPHIC_TEMPLATES = {
+        "🏠 Premium Homeowners": {
+            "age_range": "35-65",
+            "income_level": "High (€80k+)",
+            "location": "Urban/Suburban premium areas",
+            "lifestyle": "Quality-focused, design-conscious",
+            "tech_comfort": "Medium to High",
+            "renovation_experience": "Some to Extensive",
+            "key_motivations": ["Quality", "Status", "Long-term value", "Innovation"],
+            "segment_description": "Affluent homeowners who value premium quality and are willing to invest in high-end solutions. They appreciate craftsmanship, innovation, and products that reflect their status."
+        },
+        "👨‍👩‍👧‍👦 Growing Families": {
+            "age_range": "28-45",
+            "income_level": "Medium to High (€50k-100k)",
+            "location": "Suburban family neighborhoods",
+            "lifestyle": "Family-focused, practical, busy",
+            "tech_comfort": "Medium",
+            "renovation_experience": "Limited to Some",
+            "key_motivations": ["Functionality", "Safety", "Durability", "Value for money"],
+            "segment_description": "Young to middle-aged families with children who prioritize practical solutions that make daily life easier. They need robust, safe products that can handle family use."
+        },
+        "🌱 Eco-Conscious Millennials": {
+            "age_range": "25-40",
+            "income_level": "Medium (€40k-80k)",
+            "location": "Urban areas, eco-friendly communities",
+            "lifestyle": "Sustainability-focused, tech-savvy",
+            "tech_comfort": "High",
+            "renovation_experience": "DIY-friendly, research-heavy",
+            "key_motivations": ["Sustainability", "Innovation", "Cost savings", "Environmental impact"],
+            "segment_description": "Environmentally conscious millennials who research extensively and prefer sustainable, innovative solutions. They're willing to invest in eco-friendly technology."
+        },
+        "🏢 Commercial Decision Makers": {
+            "age_range": "35-55",
+            "income_level": "Business/Corporate",
+            "location": "Commercial properties, hotels, offices",
+            "lifestyle": "Professional, efficiency-focused",
+            "tech_comfort": "Medium to High",
+            "renovation_experience": "Extensive (professional)",
+            "key_motivations": ["ROI", "Reliability", "Maintenance costs", "Guest satisfaction"],
+            "segment_description": "Professional decision makers in hospitality, real estate, or facilities management who focus on operational efficiency, cost-effectiveness, and customer satisfaction."
+        },
+        "👴 Active Seniors": {
+            "age_range": "55-75",
+            "income_level": "Medium to High (established wealth)",
+            "location": "Established neighborhoods, retirement communities",
+            "lifestyle": "Comfort-focused, accessibility-aware",
+            "tech_comfort": "Low to Medium",
+            "renovation_experience": "Extensive life experience",
+            "key_motivations": ["Comfort", "Accessibility", "Reliability", "Ease of use"],
+            "segment_description": "Active seniors who are planning for aging in place. They value comfort, accessibility, and reliable products that are easy to use and maintain."
+        }
+    }
+    
+    # Display demographic templates in grid
+    demo_cols = st.columns(2)
+    demo_list = list(DEMOGRAPHIC_TEMPLATES.items())
+    
+    for i, (demo_name, demo_data) in enumerate(demo_list):
+        col = demo_cols[i % 2]
+        
+        with col:
+            with st.container():
+                st.markdown(f"**{demo_name}**")
+                st.markdown(f"**Age:** {demo_data['age_range']} | **Income:** {demo_data['income_level']}")
+                st.markdown(f"_{demo_data['segment_description'][:120]}..._")
+                st.markdown(f"**Key Motivations:** {', '.join(demo_data['key_motivations'][:3])}")
+                
+                if st.button(f"Select {demo_name}", key=f"demo_select_{i}", use_container_width=True):
+                    st.session_state.target_demographics = demo_data.copy()
+                    st.session_state.target_demographics['segment_name'] = demo_name
+                    st.success(f"✅ {demo_name} demographics selected!")
+                    # Auto-generate personas for this demographic
+                    generate_personas_for_demographic(demo_data, demo_name)
+                    st.rerun()
+    
+    # Option 2: Custom Demographics
+    st.markdown("#### ✏️ Or Define Custom Demographics")
+    
+    with st.expander("🎨 Create Custom Demographics", expanded=False):
+        with st.form("custom_demographics_form"):
+            st.markdown("Define your target demographics and segment characteristics:")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                segment_name = st.text_input("Segment Name*", placeholder="e.g., Tech-Savvy Renovators")
+                age_range = st.text_input("Age Range*", placeholder="e.g., 30-50")
+                income_level = st.selectbox("Income Level", 
+                                          ["Low (< €30k)", "Medium (€30k-60k)", "Medium-High (€60k-100k)", 
+                                           "High (€100k+)", "Business/Corporate", "Varied"])
+                location = st.text_input("Geographic Location", placeholder="e.g., Urban Germany, Suburban areas")
+            
+            with col2:
+                lifestyle = st.text_area("Lifestyle & Characteristics", 
+                                       placeholder="Describe their lifestyle, values, and characteristics...")
+                tech_comfort = st.selectbox("Technology Comfort", ["Low", "Medium", "High", "Varied"])
+                renovation_experience = st.selectbox("Renovation Experience", 
+                                                   ["None", "Limited", "Some", "Extensive", "Professional", "Varied"])
+            
+            motivations = st.text_area("Key Motivations (one per line)", 
+                                     placeholder="Quality\nInnovation\nValue for money\nConvenience")
+            segment_description = st.text_area("Segment Description*", 
+                                             placeholder="Detailed description of this demographic segment...")
+            
+            persona_count = st.slider("Number of Personas to Generate", min_value=3, max_value=8, value=5,
+                                    help="How many representative personas should AI create for this demographic?")
+            
+            if st.form_submit_button("🤖 Create Demographics & Generate Personas", type="primary"):
+                if segment_name and age_range and segment_description:
+                    motivations_list = [m.strip() for m in motivations.split('\n') if m.strip()] if motivations else []
+                    
+                    custom_demographics = {
+                        'segment_name': segment_name,
+                        'age_range': age_range,
+                        'income_level': income_level,
+                        'location': location,
+                        'lifestyle': lifestyle,
+                        'tech_comfort': tech_comfort,
+                        'renovation_experience': renovation_experience,
+                        'key_motivations': motivations_list,
+                        'segment_description': segment_description,
+                        'persona_count': persona_count
+                    }
+                    
+                    st.session_state.target_demographics = custom_demographics
+                    st.success(f"✅ Custom demographics '{segment_name}' created!")
+                    # Auto-generate personas
+                    generate_personas_for_demographic(custom_demographics, segment_name)
+                    st.rerun()
+                else:
+                    st.error("Please fill in all required fields marked with *")
+    
+    # Show current demographics and assembled personas
+    if st.session_state.target_demographics:
+        st.markdown("### ✅ Current Target Demographics")
+        demographics = st.session_state.target_demographics
+        
+        st.success(f"👥 **{demographics.get('segment_name', 'Custom Segment')}**")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write(f"**Age Range:** {demographics.get('age_range', 'Not specified')}")
+            st.write(f"**Income Level:** {demographics.get('income_level', 'Not specified')}")
+            st.write(f"**Location:** {demographics.get('location', 'Not specified')}")
+            st.write(f"**Tech Comfort:** {demographics.get('tech_comfort', 'Not specified')}")
+        with col2:
+            st.write(f"**Lifestyle:** {demographics.get('lifestyle', 'Not specified')}")
+            st.write(f"**Experience:** {demographics.get('renovation_experience', 'Not specified')}")
+            if demographics.get('key_motivations'):
+                st.write(f"**Key Motivations:** {', '.join(demographics['key_motivations'])}")
+        
+        st.write("**Segment Description:**")
+        st.write(demographics.get('segment_description', 'No description provided'))
+        
+        # Show assembled personas
+        if st.session_state.assembled_personas:
+            st.markdown("### 🤖 AI-Assembled Personas")
+            st.info(f"Generated {len(st.session_state.assembled_personas)} representative personas for this demographic segment:")
+            
+            persona_cols = st.columns(min(3, len(st.session_state.assembled_personas)))
+            
+            for i, persona in enumerate(st.session_state.assembled_personas):
+                col = persona_cols[i % len(persona_cols)]
+                
+                with col:
+                    with st.expander(f"👤 {persona.get('name', 'Persona')} ({persona.get('age', '?')})", expanded=False):
+                        st.write(f"**Job:** {persona.get('job', 'Not specified')}")
+                        st.write(f"**Company:** {persona.get('company', 'Not specified')}")
+                        st.write("**Background:**")
+                        experience = persona.get('experience', 'No background provided')
+                        if isinstance(experience, str):
+                            st.write(experience[:200] + ("..." if len(experience) > 200 else ""))
+                        else:
+                            st.write(str(experience)[:200] + "...")
+                        
+                        st.write("**Key Concerns:**")
+                        pain_points = persona.get('pain_points', 'No concerns listed')
+                        if isinstance(pain_points, str):
+                            st.write(pain_points[:150] + ("..." if len(pain_points) > 150 else ""))
+                        elif isinstance(pain_points, list):
+                            st.write('; '.join(pain_points)[:150] + ("..." if len('; '.join(pain_points)) > 150 else ""))
+                        else:
+                            st.write(str(pain_points)[:150] + "...")
+            
+            # Regenerate personas button
+            col1, col2, col3 = st.columns([1, 1, 1])
+            with col2:
+                if st.button("🔄 Regenerate Personas", use_container_width=True):
+                    generate_personas_for_demographic(demographics, demographics.get('segment_name', 'Custom'))
+                    st.rerun()
+        
+        # Navigation buttons
+        st.markdown("---")
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col3:
+            if st.session_state.assembled_personas:
+                if st.button("➡️ Continue to Step 1: Define Product", type="primary", use_container_width=True):
+                    st.session_state.flow_completed[0] = True
+                    st.session_state.current_step = 1
+                    st.rerun()
+            else:
+                st.button("➡️ Generate personas first", disabled=True, use_container_width=True)
+
+def generate_personas_for_demographic(demographics: Dict, segment_name: str):
+    """Generate representative personas based on demographic data using AI"""
+    if not OPENAI_AVAILABLE:
+        st.error("OpenAI API not available. Using fallback personas.")
+        # Use fallback personas from existing examples
+        fallback_personas = list(EXAMPLE_PERSONAS.values())[:demographics.get('persona_count', 5)]
+        st.session_state.assembled_personas = fallback_personas
         return
     
-    col1, col2 = st.columns([1, 1])
+    try:
+        with st.spinner(f"🤖 Assembling {demographics.get('persona_count', 5)} representative personas for {segment_name}..."):
+            client = openai.OpenAI(api_key=OPENAI_API_KEY)
+            
+            personas = []
+            persona_count = demographics.get('persona_count', 5)
+            
+            for i in range(persona_count):
+                response = client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[
+                        {"role": "system", "content": f"""You are a persona generator for user research. Create realistic, diverse personas that represent the target demographic segment.
+
+TARGET DEMOGRAPHIC SEGMENT: {segment_name}
+- Age Range: {demographics.get('age_range', 'Not specified')}
+- Income Level: {demographics.get('income_level', 'Not specified')}
+- Location: {demographics.get('location', 'Not specified')}
+- Lifestyle: {demographics.get('lifestyle', 'Not specified')}
+- Tech Comfort: {demographics.get('tech_comfort', 'Not specified')}
+- Renovation Experience: {demographics.get('renovation_experience', 'Not specified')}
+- Key Motivations: {', '.join(demographics.get('key_motivations', []))}
+- Segment Description: {demographics.get('segment_description', 'Not specified')}
+
+Generate a JSON object with these exact fields (all values must be STRINGS):
+- name: Full German name appropriate for the demographic (STRING)
+- age: Specific age within the range (NUMBER as INTEGER)
+- job: Job title that fits the income/lifestyle profile (STRING)
+- company: Company description that matches the profile (STRING)  
+- experience: Background with bathroom products/renovations fitting their experience level (STRING - paragraph format)
+- pain_points: Current challenges and frustrations relevant to this demographic (STRING - paragraph format, not a list)
+- goals: What they want to achieve, aligned with key motivations (STRING - paragraph format)
+- personality: Communication style and decision-making approach fitting the segment (STRING - paragraph format)
+
+IMPORTANT: All fields except 'age' must be strings. Do not use arrays/lists for any field. Write pain_points, goals, etc. as coherent paragraphs.
+
+Make each persona unique while staying within the demographic parameters. Focus on realistic German customers that truly represent this segment."""},
+                        {"role": "user", "content": f"Generate persona {i+1} of {persona_count} for the {segment_name} demographic segment. Make it distinct from previous personas while staying within the demographic parameters."}
+                    ],
+                    max_tokens=800,
+                    temperature=0.8
+                )
+                
+                persona_text = response.choices[0].message.content.strip()
+                # Extract JSON from response if wrapped in markdown
+                if "```json" in persona_text:
+                    persona_text = persona_text.split("```json")[1].split("```")[0]
+                elif "```" in persona_text:
+                    persona_text = persona_text.split("```")[1]
+                
+                import json
+                try:
+                    persona = json.loads(persona_text)
+                    # Ensure all fields are proper types
+                    if isinstance(persona.get('pain_points'), list):
+                        persona['pain_points'] = '; '.join(persona['pain_points'])
+                    if isinstance(persona.get('goals'), list):
+                        persona['goals'] = '; '.join(persona['goals'])
+                    if isinstance(persona.get('experience'), list):
+                        persona['experience'] = '; '.join(persona['experience'])
+                    personas.append(persona)
+                except json.JSONDecodeError as e:
+                    st.warning(f"Failed to parse persona {i+1}, using fallback")
+                    # Use a fallback persona from examples
+                    if EXAMPLE_PERSONAS:
+                        fallback_persona = list(EXAMPLE_PERSONAS.values())[i % len(EXAMPLE_PERSONAS)]
+                        personas.append(fallback_persona)
+            
+            st.session_state.assembled_personas = personas
+            st.success(f"✅ Successfully generated {len(personas)} personas for {segment_name}!")
+            
+    except Exception as e:
+        st.error(f"Error generating personas: {str(e)}")
+        # Fallback to example personas
+        fallback_personas = list(EXAMPLE_PERSONAS.values())[:demographics.get('persona_count', 5)]
+        st.session_state.assembled_personas = fallback_personas
+
+def render_step1_define_product():
+    """Step 1: Define Product for Autonomous Research"""
+    st.markdown("## Step 1: Define Product to Test 🚀")
+    st.markdown("Define the product you want to test with autonomous AI-generated interviews. The system will create diverse personas and conduct interviews automatically.")
+    
+    # Option 1: Quick Products
+    st.markdown("### 🚀 Quick Product Templates")
+    st.markdown("Select from pre-defined zero360 products:")
+    
+    DEFAULT_PRODUCTS = {
+        "🏠 FlexSpace System": {
+            "name": "zero360 FlexSpace System",
+            "description": "Modulares Duschsystem mit magnetischer Wandschiene, das sich an verändernde Lebenssituationen anpasst. Komponenten können werkzeuglos angebracht werden - von Handbrausen auf Kinderhöhe bis zu Duschsitzen mit Haltegriffen.",
+            "value_prop": "Maximale Flexibilität durch modularen Aufbau. Passt sich an alle Lebensphasen an - von der ersten Wohnung bis zum altersgerechten Bad.",
+            "target_market": "Mieter, junge Familien, Menschen in Veränderungsphasen",
+            "key_features": ["Magnetische Wandschiene", "Werkzeuglose Montage", "Modulare Komponenten", "Höhenverstellbar"]
+        },
+        "🤖 AIR System": {
+            "name": "zero360 AIR (Adaptive Intelligent Room)",
+            "description": "Intelligentes Badezimmersystem mit dezenten Sensoren in den Armaturen. Erfasst Nutzungsmuster, analysiert Wasserqualität in Echtzeit und optimiert selbstständig.",
+            "value_prop": "KI-gesteuerte Optimierung des gesamten Badezimmers. Automatische Anpassung an Nutzergewohnheiten, präventive Wartung und professionelle Datenanalyse.",
+            "target_market": "Luxussegment, Hotels, technikaffine Haushalte",
+            "key_features": ["KI-gesteuerte Optimierung", "Echtzeitanalyse", "Präventive Wartung", "Personalisierte Einstellungen"]
+        },
+        "🔗 Connect Hub": {
+            "name": "zero360 Connect Hub",
+            "description": "Zentrale Steuereinheit, die alle Wasseranwendungen im Haus intelligent vernetzt. Überwacht Verbrauch, erkennt Leckagen und optimiert Wassertemperatur.",
+            "value_prop": "Ein Gerät revolutioniert das gesamte Wassermanagement. Intelligente Vernetzung aller Geräte mit präventiver Wartung.",
+            "target_market": "Hausmodernisierer, Smart Home Enthusiasten",
+            "key_features": ["Zentrale Steuerung", "Leckage-Erkennung", "Verbrauchsoptimierung", "Smart Home Integration"]
+        },
+        "🌱 PureFlow System": {
+            "name": "zero360 PureFlow System",
+            "description": "Revolutionäres Dreifachsystem für nachhaltiges Wassermanagement mit Recycling. Filtert, reinigt und bereitet Wasser für verschiedene Anwendungen auf.",
+            "value_prop": "Nachhaltigkeit ohne Verzicht. Massive Kosteneinsparungen bei reduziertem CO2-Fußabdruck.",
+            "target_market": "Umweltbewusste Familien, Nachhaltigkeits-orientierte Haushalte",
+            "key_features": ["Wasser-Recycling", "Dreifach-Filtersystem", "CO2-Reduktion", "Kosteneinsparung"]
+        }
+    }
+    
+    # Display products in grid
+    product_cols = st.columns(2)
+    products_list = list(DEFAULT_PRODUCTS.items())
+    
+    for i, (emoji_name, product_data) in enumerate(products_list):
+        col = product_cols[i % 2]
+        
+        with col:
+            with st.container():
+                st.markdown(f"**{emoji_name}**")
+                st.markdown(f"**{product_data['name']}**")
+                st.markdown(f"{product_data['value_prop']}")
+                st.markdown(f"_Target: {product_data['target_market']}_")
+                
+                if st.button(f"Select {emoji_name}", key=f"prod_select_{i}", use_container_width=True):
+                    st.session_state.current_product = product_data.copy()
+                    st.session_state.flow_completed[0] = True
+                    st.success(f"✅ {product_data['name']} selected!")
+                    st.balloons()
+                    st.rerun()
+    
+    # Option 2: Custom Product
+    st.markdown("### ✏️ Or Define Custom Product")
+    
+    with st.expander("🎨 Create Custom Product", expanded=False):
+        with st.form("custom_product_form"):
+            st.markdown("Define your own product or concept for autonomous testing:")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                product_name = st.text_input("Product Name*", placeholder="e.g., zero360 SmartFlow Pro")
+                product_category = st.selectbox("Category", 
+                                              ["Shower System", "Faucet/Tap", "Smart Home", "Water Management", "Accessories", "Other"])
+                target_market = st.text_input("Target Market*", placeholder="e.g., Premium homeowners, Hotels")
+            
+            with col2:
+                product_description = st.text_area("Product Description*", 
+                                                 placeholder="Describe what the product does, how it works, key technologies...")
+                value_proposition = st.text_area("Value Proposition*", 
+                                                placeholder="What's the main benefit? Why should customers choose this?")
+            
+            key_features = st.text_area("Key Features (one per line)", 
+                                      placeholder="Feature 1\nFeature 2\nFeature 3...")
+            price_range = st.selectbox("Price Range", 
+                                     ["Budget (< 500€)", "Mid-range (500-2000€)", "Premium (2000-5000€)", "Luxury (> 5000€)", "Not defined"])
+            
+            if st.form_submit_button("🚀 Create Product", type="primary"):
+                if product_name and product_description and value_proposition and target_market:
+                    features_list = [f.strip() for f in key_features.split('\n') if f.strip()] if key_features else []
+                    
+                    custom_product = {
+                        'name': product_name,
+                        'category': product_category,
+                        'description': product_description,
+                        'value_prop': value_proposition,
+                        'target_market': target_market,
+                        'key_features': features_list,
+                        'price_range': price_range
+                    }
+                    
+                    st.session_state.current_product = custom_product
+                    st.session_state.flow_completed[0] = True
+                    st.success(f"✅ Custom product '{product_name}' created successfully!")
+                    st.balloons()
+                    st.rerun()
+                else:
+                    st.error("Please fill in all required fields marked with *")
+    
+    # Show current selection
+    if st.session_state.current_product:
+        st.markdown("### ✅ Current Product")
+        product = st.session_state.current_product
+        
+        st.success(f"🚀 **{product.get('name', 'Unnamed Product')}**")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write(f"**Target Market:** {product.get('target_market', 'Not defined')}")
+            st.write(f"**Category:** {product.get('category', 'Not specified')}")
+        with col2:
+            st.write("**Value Proposition:**")
+            st.write(product.get('value_prop', 'No value proposition defined')[:150] + "...")
+        
+        st.write("**Description:**")
+        st.write(product.get('description', 'No description provided')[:200] + "...")
+        
+        # Navigation buttons
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col3:
+            if st.button("➡️ Continue to Step 2: Generate Interviews", type="primary", use_container_width=True):
+                st.session_state.current_step = 2
+                st.rerun()
+
+def render_step2_generate_interviews():
+    """Step 2: Generate Autonomous Interviews"""
+    st.markdown("## Step 2: Generate Autonomous Interviews 🤖")
+    st.markdown("Generate and run up to 10 autonomous interviews with AI-created personas. Each interview will test your product with different user types.")
+    
+    # Check prerequisites
+    if not st.session_state.target_demographics:
+        st.error("⚠️ Please complete Step 0 first - define target demographics.")
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col1:
+            if st.button("⬅️ Back to Step 0", use_container_width=True, type="primary"):
+                st.session_state.current_step = 0
+                st.rerun()
+        return
+    
+    if not st.session_state.current_product:
+        st.error("⚠️ Please complete Step 1 first - define a product to test.")
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col1:
+            if st.button("⬅️ Back to Step 1", use_container_width=True, type="primary"):
+                st.session_state.current_step = 1
+                st.rerun()
+        return
+    
+    product = st.session_state.current_product
+    st.info(f"🚀 **Testing Product:** {product.get('name', 'Unnamed Product')}")
+    
+    # Interview Configuration
+    st.markdown("### ⚙️ Interview Configuration")
+    
+    col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.subheader("📊 Interview Zusammenfassung")
-        
-        # Basic stats
-        user_messages = [msg for msg in st.session_state.chat_history if msg['role'] == 'user']
-        ai_messages = [msg for msg in st.session_state.chat_history if msg['role'] == 'assistant']
-        
-        st.metric("💬 Nachrichten gesamt", len(st.session_state.chat_history))
-        st.metric("❓ Ihre Fragen", len(user_messages))
-        st.metric("💭 Persona Antworten", len(ai_messages))
-        
-        # Duration
-        if len(st.session_state.chat_history) >= 2:
-            start_time = st.session_state.chat_history[0]['timestamp']
-            end_time = st.session_state.chat_history[-1]['timestamp']
-            duration = end_time - start_time
-            st.metric("⏱️ Gesprächsdauer", f"{duration.seconds // 60} Min")
-        
-        st.subheader("🎯 Key Insights")
-        
-        metrics = st.session_state.metrics
-        st.write(f"**Sentiment:** {metrics['sentiment_score']:.1%}")
-        st.write(f"**Überzeugungsgrad:** {metrics['conviction_level']:.1%}")
-        st.write(f"**Hauptbedenken:** {', '.join(metrics['main_concerns']) if metrics['main_concerns'] else 'Keine'}")
+        num_interviews = st.slider(
+            "Number of Interviews", 
+            min_value=1, 
+            max_value=10, 
+            value=min(5, st.session_state.max_interviews),
+            help="How many autonomous interviews to generate"
+        )
     
     with col2:
-        st.subheader("💾 Export Optionen")
+        questions_per_interview = st.slider(
+            "Questions per Interview", 
+            min_value=5, 
+            max_value=15, 
+            value=8,
+            help="Number of questions in each interview"
+        )
+    
+    with col3:
+        interview_focus = st.selectbox(
+            "Interview Focus",
+            ["Balanced", "Pain Points", "Value Proposition", "Pricing", "Features", "Competition"],
+            help="What aspect should the interviews focus on?"
+        )
+    
+    # Current Status
+    st.markdown("### 📊 Current Status")
+    
+    completed_interviews = len([i for i in st.session_state.autonomous_interviews if i['status'] == 'completed'])
+    running_interviews = len([i for i in st.session_state.autonomous_interviews if i['status'] == 'running'])
+    
+    status_col1, status_col2, status_col3 = st.columns(3)
+    
+    with status_col1:
+        st.metric("Completed", completed_interviews)
+    with status_col2:
+        st.metric("Running", running_interviews)
+    with status_col3:
+        st.metric("Remaining", max(0, num_interviews - len(st.session_state.autonomous_interviews)))
+    
+    # Generation Controls
+    st.markdown("### 🎬 Interview Generation")
+    
+    # Check if we can generate more interviews
+    can_generate = len(st.session_state.autonomous_interviews) < num_interviews and not st.session_state.research_active
+    
+    if can_generate:
+        col1, col2 = st.columns(2)
         
-        # Prepare export data
-        export_data = {
-            'interview_info': {
-                'date': datetime.now().isoformat(),
-                'duration_minutes': (st.session_state.chat_history[-1]['timestamp'] - st.session_state.chat_history[0]['timestamp']).seconds // 60 if len(st.session_state.chat_history) >= 2 else 0,
-                'total_messages': len(st.session_state.chat_history)
-            },
-            'persona': st.session_state.current_persona,
-            'product': st.session_state.product_info,
-            'chat_history': [
-                {
-                    'role': msg['role'],
-                    'content': msg['content'],
-                    'timestamp': msg['timestamp'].isoformat()
-                } for msg in st.session_state.chat_history
-            ],
-            'metrics': st.session_state.metrics
-        }
+        with col1:
+            if st.button("🚀 Generate Single Interview", use_container_width=True):
+                generate_single_interview(product, questions_per_interview, interview_focus)
         
+        with col2:
+            if st.button("🤖 Generate All Interviews", use_container_width=True, type="primary"):
+                generate_all_interviews(product, num_interviews, questions_per_interview, interview_focus)
+    else:
+        if st.session_state.research_active:
+            st.warning("🔄 Research is currently running...")
+            if st.button("⏹️ Stop Research", use_container_width=True):
+                st.session_state.research_active = False
+                st.rerun()
+        else:
+            st.info("✅ Maximum number of interviews reached or research completed.")
+    
+    # Interview Results Preview
+    if st.session_state.autonomous_interviews:
+        st.markdown("### 📋 Interview Results Preview")
+        
+        for i, interview in enumerate(st.session_state.autonomous_interviews[-3:]):  # Show last 3
+            with st.expander(f"Interview {interview['id']} - {interview['persona']['name']} ({interview['status']})", expanded=False):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write(f"**Persona:** {interview['persona']['name']}")
+                    st.write(f"**Job:** {interview['persona']['job']}")
+                    st.write(f"**Age:** {interview['persona']['age']}")
+                
+                with col2:
+                    if interview['status'] == 'completed':
+                        metrics = interview['metrics']
+                        st.write(f"**Sentiment:** {metrics['sentiment_score']:.1%}")
+                        st.write(f"**Conviction:** {metrics['conviction_level']:.1%}")
+                        st.write(f"**Concerns:** {len(metrics['main_concerns'])}")
+                    else:
+                        st.write("**Status:** In progress...")
+                
+                if interview['status'] == 'completed' and interview['conversation']:
+                    st.write("**Sample Response:**")
+                    first_response = next((msg['content'] for msg in interview['conversation'] if msg['role'] == 'assistant'), "No response yet")
+                    st.write(f"_{first_response[:200]}..._")
+    
+    # Navigation
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        if st.button("⬅️ Back to Step 1", use_container_width=True):
+            st.session_state.current_step = 1
+            st.rerun()
+    
+    with col3:
+        # Only allow proceeding if we have at least one completed interview
+        if completed_interviews > 0:
+            if st.button("➡️ Continue to Step 3: Analyze", type="primary", use_container_width=True):
+                st.session_state.current_step = 3
+                st.session_state.flow_completed[1] = True
+                st.rerun()
+        else:
+            st.button("➡️ Generate interviews first", disabled=True, use_container_width=True)
+
+def generate_single_interview(product: Dict, num_questions: int, focus: str):
+    """Generate and run a single autonomous interview"""
+    if not OPENAI_AVAILABLE:
+        st.error("OpenAI API not available. Please check your API key configuration.")
+        return
+    
+    st.session_state.research_active = True
+    
+    # Show progress
+    progress_placeholder = st.empty()
+    status_placeholder = st.empty()
+    
+    try:
+        with status_placeholder.container():
+            st.info("🤖 Generating persona...")
+        
+        # Use assembled persona if available, otherwise generate diverse persona
+        if st.session_state.assembled_personas:
+            # Select a random persona from the assembled ones
+            import random
+            persona = random.choice(st.session_state.assembled_personas)
+        else:
+            # Fallback to generating diverse persona
+            persona = generate_diverse_persona()
+        
+        with status_placeholder.container():
+            st.info(f"👤 Created persona: {persona.get('name', 'Unknown')}")
+            st.info("❓ Generating interview questions...")
+        
+        # Generate questions
+        questions = generate_interview_questions(persona, product, num_questions)
+        
+        with status_placeholder.container():
+            st.info(f"💬 Conducting interview with {len(questions)} questions...")
+        
+        # Set up progress tracking
+        st.session_state.progress_placeholder = progress_placeholder
+        
+        # Conduct interview
+        interview_data = conduct_autonomous_interview(persona, product, questions)
+        
+        # Add to session state
+        st.session_state.autonomous_interviews.append(interview_data)
+        st.session_state.interviews_completed += 1
+        
+        with status_placeholder.container():
+            st.success(f"✅ Interview completed with {persona.get('name', 'Unknown')}!")
+            st.balloons()
+        
+    except Exception as e:
+        with status_placeholder.container():
+            st.error(f"❌ Error generating interview: {str(e)}")
+    
+    finally:
+        st.session_state.research_active = False
+        progress_placeholder.empty()
+        # Keep status for a moment, then clear
+        import time
+        time.sleep(2)
+        status_placeholder.empty()
+        st.rerun()
+
+def generate_all_interviews(product: Dict, num_interviews: int, questions_per_interview: int, focus: str):
+    """Generate all remaining interviews"""
+    if not OPENAI_AVAILABLE:
+        st.error("OpenAI API not available. Please check your API key configuration.")
+        return
+    
+    st.session_state.research_active = True
+    
+    # Calculate how many we need to generate
+    current_count = len(st.session_state.autonomous_interviews)
+    remaining = num_interviews - current_count
+    
+    # Show overall progress
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    try:
+        for i in range(remaining):
+            current_progress = i / remaining
+            progress_bar.progress(current_progress, f"Generating interview {i+1}/{remaining}")
+            
+            with status_text.container():
+                st.info(f"🤖 Generating interview {current_count + i + 1}...")
+            
+            # Use assembled persona if available, otherwise generate diverse persona
+            if st.session_state.assembled_personas and i < len(st.session_state.assembled_personas):
+                # Use specific persona from assembled list
+                persona = st.session_state.assembled_personas[i]
+            elif st.session_state.assembled_personas:
+                # If we have more interviews than personas, cycle through them
+                import random
+                persona = random.choice(st.session_state.assembled_personas)
+            else:
+                # Fallback to generating diverse persona
+                persona = generate_diverse_persona()
+            
+            with status_text.container():
+                st.info(f"👤 Interview {current_count + i + 1}: {persona.get('name', 'Unknown')}")
+            
+            # Generate questions
+            questions = generate_interview_questions(persona, product, questions_per_interview)
+            
+            # Conduct interview
+            interview_data = conduct_autonomous_interview(persona, product, questions)
+            
+            # Add to session state
+            st.session_state.autonomous_interviews.append(interview_data)
+            st.session_state.interviews_completed += 1
+        
+        # Final progress
+        progress_bar.progress(1.0, f"✅ Generated {remaining} interviews successfully!")
+        
+        with status_text.container():
+            st.success(f"🎉 All {remaining} interviews completed!")
+            st.balloons()
+        
+    except Exception as e:
+        with status_text.container():
+            st.error(f"❌ Error during batch generation: {str(e)}")
+    
+    finally:
+        st.session_state.research_active = False
+        # Clean up UI elements
+        import time
+        time.sleep(3)
+        progress_bar.empty()
+        status_text.empty()
+        st.rerun()
+
+def render_step3_analyze_results():
+    """Step 3: Analyze Autonomous Interview Results"""
+    st.markdown("## Step 3: Analyze Interview Results 📊")
+    st.markdown("Analyze and compare results from your autonomous interviews to gain comprehensive insights about your product.")
+    
+    # Check if we have any interviews
+    if not st.session_state.autonomous_interviews:
+        st.error("⚠️ No interviews found. Please complete Step 2 first.")
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col1:
+            if st.button("⬅️ Back to Step 2", use_container_width=True, type="primary"):
+                st.session_state.current_step = 2
+                st.rerun()
+        return
+    
+    # Filter completed interviews
+    completed_interviews = [i for i in st.session_state.autonomous_interviews if i['status'] == 'completed']
+    
+    if not completed_interviews:
+        st.warning("⚠️ No completed interviews yet. Please wait for interviews to finish or go back to Step 2.")
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col1:
+            if st.button("⬅️ Back to Step 2", use_container_width=True, type="primary"):
+                st.session_state.current_step = 2
+                st.rerun()
+        return
+    
+    # Overall Summary
+    st.markdown("### 📋 Research Summary")
+    
+    product = st.session_state.current_product
+    st.info(f"🚀 **Product Tested:** {product.get('name', 'Unnamed Product')}")
+    
+    summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
+    
+    with summary_col1:
+        st.metric("Total Interviews", len(completed_interviews))
+    with summary_col2:
+        avg_sentiment = sum(i['metrics']['sentiment_score'] for i in completed_interviews) / len(completed_interviews)
+        st.metric("Avg Sentiment", f"{avg_sentiment:.1%}")
+    with summary_col3:
+        avg_conviction = sum(i['metrics']['conviction_level'] for i in completed_interviews) / len(completed_interviews)
+        st.metric("Avg Purchase Intent", f"{avg_conviction:.1%}")
+    with summary_col4:
+        all_concerns = []
+        for i in completed_interviews:
+            all_concerns.extend(i['metrics']['main_concerns'])
+        unique_concerns = len(set(all_concerns))
+        st.metric("Unique Concerns", unique_concerns)
+    
+    # Detailed Analytics
+    st.markdown("### 📈 Detailed Analytics")
+    
+    # Create tabs for different analysis views
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "👥 Personas", "💬 Conversations", "📄 Export"])
+    
+    with tab1:
+        render_overview_analysis(completed_interviews)
+    
+    with tab2:
+        render_persona_analysis(completed_interviews)
+    
+    with tab3:
+        render_conversation_analysis(completed_interviews)
+    
+    with tab4:
+        render_export_analysis(completed_interviews, product)
+    
+    # Navigation
+    st.markdown("---")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        if st.button("⬅️ Back to Step 2", use_container_width=True):
+            st.session_state.current_step = 2
+            st.rerun()
+    
+    with col2:
+        if st.button("🔄 Start New Research", use_container_width=True, type="primary"):
+            # Reset for new research
+            st.session_state.autonomous_interviews = []
+            st.session_state.current_product = {}
+            st.session_state.target_demographics = {}
+            st.session_state.assembled_personas = []
+            st.session_state.research_active = False
+            st.session_state.interviews_completed = 0
+            st.session_state.current_step = 0
+            st.session_state.flow_completed = [False, False, False, False]
+            st.rerun()
+    
+    with col3:
+        st.session_state.flow_completed[3] = True  # Mark step 3 as completed
+
+# Analysis Helper Functions
+def render_overview_analysis(completed_interviews):
+    """Render overview analysis tab"""
+    st.markdown("#### 🎯 Key Insights")
+    
+    # Calculate insights
+    sentiments = [i['metrics']['sentiment_score'] for i in completed_interviews]
+    convictions = [i['metrics']['conviction_level'] for i in completed_interviews]
+    
+    avg_sentiment = sum(sentiments) / len(sentiments)
+    avg_conviction = sum(convictions) / len(convictions)
+    
+    # Sentiment distribution
+    positive_count = len([s for s in sentiments if s > 0.6])
+    neutral_count = len([s for s in sentiments if 0.4 <= s <= 0.6])
+    negative_count = len([s for s in sentiments if s < 0.4])
+    
+    # Display insights
+    insights = []
+    if avg_sentiment > 0.7:
+        insights.append("✅ **Very Positive Reception** - Strong overall sentiment across interviews")
+    elif avg_sentiment < 0.3:
+        insights.append("⚠️ **Negative Reception** - Significant concerns raised across interviews")
+    else:
+        insights.append("🤔 **Mixed Reception** - Varied opinions across different personas")
+    
+    if avg_conviction > 0.8:
+        insights.append("🎯 **High Purchase Intent** - Strong buying signals from most personas")
+    elif avg_conviction < 0.3:
+        insights.append("📈 **Low Purchase Intent** - Need to strengthen value proposition")
+    
+    if positive_count > len(completed_interviews) * 0.7:
+        insights.append("🌟 **Broad Appeal** - Product resonates with diverse audience")
+    
+    for insight in insights:
+        st.markdown(f"- {insight}")
+    
+    # Charts
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 😊 Sentiment Distribution")
+        sentiment_data = pd.DataFrame({
+            'Sentiment': ['Positive', 'Neutral', 'Negative'],
+            'Count': [positive_count, neutral_count, negative_count]
+        })
+        fig = px.pie(sentiment_data, values='Count', names='Sentiment', 
+                    color_discrete_map={'Positive': '#10b981', 'Neutral': '#6b7280', 'Negative': '#ef4444'})
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.markdown("#### 📊 Interview Metrics")
+        metrics_data = pd.DataFrame({
+            'Interview': [f"Interview {i+1}" for i in range(len(completed_interviews))],
+            'Sentiment': sentiments,
+            'Conviction': convictions
+        })
+        fig = px.scatter(metrics_data, x='Sentiment', y='Conviction', hover_name='Interview',
+                        title="Sentiment vs Purchase Intent")
+        fig.add_hline(y=0.5, line_dash="dash", line_color="gray", annotation_text="Medium Conviction")
+        fig.add_vline(x=0.5, line_dash="dash", line_color="gray", annotation_text="Neutral Sentiment")
+        st.plotly_chart(fig, use_container_width=True)
+
+def render_persona_analysis(completed_interviews):
+    """Render persona analysis tab"""
+    st.markdown("#### 👥 Persona Breakdown")
+    
+    # Group by job/persona type
+    persona_groups = {}
+    for interview in completed_interviews:
+        job = interview['persona']['job']
+        if job not in persona_groups:
+            persona_groups[job] = []
+        persona_groups[job].append(interview)
+    
+    # Display each persona group
+    for job, interviews in persona_groups.items():
+        with st.expander(f"{job} ({len(interviews)} interview{'s' if len(interviews) > 1 else ''})", expanded=True):
+            for interview in interviews:
+                persona = interview['persona']
+                metrics = interview['metrics']
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.write(f"**{persona['name']}**")
+                    st.write(f"Age: {persona['age']}")
+                    st.write(f"Company: {persona.get('company', 'N/A')}")
+                
+                with col2:
+                    st.write(f"**Sentiment:** {metrics['sentiment_score']:.1%}")
+                    st.write(f"**Conviction:** {metrics['conviction_level']:.1%}")
+                    st.write(f"**Concerns:** {len(metrics['main_concerns'])}")
+                
+                with col3:
+                    if metrics['main_concerns']:
+                        st.write("**Key Concerns:**")
+                        for concern in metrics['main_concerns'][:3]:
+                            st.write(f"• {concern}")
+                    else:
+                        st.write("**No major concerns**")
+                
+                # Sample quote
+                if interview['conversation']:
+                    first_response = next((msg['content'] for msg in interview['conversation'] if msg['role'] == 'assistant'), "")
+                    if first_response:
+                        st.write(f"💬 *\"{first_response[:150]}...\"*")
+                
+                st.markdown("---")
+
+def render_conversation_analysis(completed_interviews):
+    """Render conversation analysis tab"""
+    st.markdown("#### 💬 Conversation Insights")
+    
+    # Select interview to view
+    interview_options = [f"{i['persona']['name']} - {i['persona']['job']}" for i in completed_interviews]
+    selected_idx = st.selectbox("Select Interview to View:", range(len(interview_options)), 
+                               format_func=lambda x: interview_options[x])
+    
+    selected_interview = completed_interviews[selected_idx]
+    
+    # Display interview details
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("##### 👤 Persona Details")
+        persona = selected_interview['persona']
+        st.write(f"**Name:** {persona['name']}")
+        st.write(f"**Age:** {persona['age']}")
+        st.write(f"**Job:** {persona['job']}")
+        st.write(f"**Company:** {persona.get('company', 'N/A')}")
+    
+    with col2:
+        st.markdown("##### 📊 Interview Metrics")
+        metrics = selected_interview['metrics']
+        st.write(f"**Sentiment:** {metrics['sentiment_score']:.1%}")
+        st.write(f"**Conviction:** {metrics['conviction_level']:.1%}")
+        st.write(f"**Concerns:** {len(metrics['main_concerns'])}")
+    
+    # Display conversation
+    st.markdown("##### 💬 Full Conversation")
+    
+    conversation = selected_interview['conversation']
+    for i, message in enumerate(conversation):
+        if message['role'] == 'user':
+            st.chat_message("user").write(f"**Researcher:** {message['content']}")
+        else:
+            st.chat_message("assistant").write(f"**{persona['name']}:** {message['content']}")
+
+def render_export_analysis(completed_interviews, product):
+    """Render export analysis tab"""
+    st.markdown("#### 📄 Export Research Results")
+    st.markdown("Download your autonomous research results in various formats:")
+    
+    # Prepare comprehensive export data
+    export_data = {
+        'research_session': {
+            'timestamp': datetime.now().isoformat(),
+            'product': product,
+            'total_interviews': len(completed_interviews)
+        },
+        'summary_metrics': {
+            'avg_sentiment': sum(i['metrics']['sentiment_score'] for i in completed_interviews) / len(completed_interviews),
+            'avg_conviction': sum(i['metrics']['conviction_level'] for i in completed_interviews) / len(completed_interviews),
+            'sentiment_distribution': {
+                'positive': len([i for i in completed_interviews if i['metrics']['sentiment_score'] > 0.6]),
+                'neutral': len([i for i in completed_interviews if 0.4 <= i['metrics']['sentiment_score'] <= 0.6]),
+                'negative': len([i for i in completed_interviews if i['metrics']['sentiment_score'] < 0.4])
+            }
+        },
+        'interviews': [
+            {
+                'id': interview['id'],
+                'persona': interview['persona'],
+                'metrics': interview['metrics'],
+                'conversation': [
+                    {
+                        'role': msg['role'],
+                        'content': msg['content'],
+                        'timestamp': msg['timestamp'].isoformat()
+                    } for msg in interview['conversation']
+                ]
+            } for interview in completed_interviews
+        ]
+    }
+    
+    export_col1, export_col2, export_col3 = st.columns(3)
+    
+    with export_col1:
         # JSON Export
         json_data = json.dumps(export_data, indent=2, ensure_ascii=False)
+        st.download_button(
+            label="📄 Export Full Data (JSON)",
+            data=json_data,
+            file_name=f"autonomous_research_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            mime="application/json",
+            use_container_width=True
+        )
+    
+    with export_col2:
+        # CSV Export (Summary)
+        summary_data = []
+        for interview in completed_interviews:
+            summary_data.append({
+                'Interview_ID': interview['id'],
+                'Persona_Name': interview['persona']['name'],
+                'Persona_Job': interview['persona']['job'],
+                'Persona_Age': interview['persona']['age'],
+                'Sentiment_Score': interview['metrics']['sentiment_score'],
+                'Conviction_Level': interview['metrics']['conviction_level'],
+                'Concerns_Count': len(interview['metrics']['main_concerns']),
+                'Main_Concerns': '; '.join(interview['metrics']['main_concerns'])
+            })
+        
+        df = pd.DataFrame(summary_data)
+        csv_string = df.to_csv(index=False)
         
         st.download_button(
-            label="📄 Als JSON exportieren",
-            data=json_data,
-            file_name=f"interview_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-            mime="application/json",
-            type="primary"
+            label="📊 Export Summary (CSV)",
+            data=csv_string,
+            file_name=f"research_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+            use_container_width=True
         )
-        
-        # CSV Export (Chat History)
-        if st.session_state.chat_history:
-            chat_df = pd.DataFrame([
-                {
-                    'Timestamp': msg['timestamp'],
-                    'Role': 'Interviewer' if msg['role'] == 'user' else 'Persona',
-                    'Message': msg['content']
-                } for msg in st.session_state.chat_history
-            ])
-            
-            csv_data = chat_df.to_csv(index=False)
-            
-            st.download_button(
-                label="📊 Chat als CSV exportieren",
-                data=csv_data,
-                file_name=f"chat_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv"
-            )
-        
-        # Summary Report
-        st.subheader("📋 Report Vorschau")
+    
+    with export_col3:
+        # Report Export
+        avg_sentiment = export_data['summary_metrics']['avg_sentiment']
+        avg_conviction = export_data['summary_metrics']['avg_conviction']
         
         report = f"""
-# Interview Report
+# Autonomous User Research Report
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-**Datum:** {datetime.now().strftime('%d.%m.%Y %H:%M')}
-**Persona:** {st.session_state.current_persona.get('name', 'N/A')}
-**Produkt:** {st.session_state.product_info.get('name', 'N/A')}
+## Product Tested
+**Name:** {product.get('name', 'Unknown')}
+**Description:** {product.get('description', 'No description')}
+**Target Market:** {product.get('target_market', 'Not specified')}
 
-## Metriken
-- Sentiment: {metrics['sentiment_score']:.1%}
-- Überzeugungsgrad: {metrics['conviction_level']:.1%}
-- Hauptbedenken: {', '.join(metrics['main_concerns']) if metrics['main_concerns'] else 'Keine'}
+## Research Summary
+- **Total Interviews:** {len(completed_interviews)}
+- **Average Sentiment:** {avg_sentiment:.1%}
+- **Average Purchase Intent:** {avg_conviction:.1%}
 
-## Empfehlungen
-{"- Positive Resonanz nutzen für Marketing" if metrics['sentiment_score'] > 0.6 else "- Bedenken addressieren"}
-{"- Überzeugung ist hoch, Sales-Ready" if metrics['conviction_level'] > 0.7 else "- Mehr Aufklärung nötig"}
-        """
+## Key Findings
+### Sentiment Distribution
+- Positive: {export_data['summary_metrics']['sentiment_distribution']['positive']} interviews
+- Neutral: {export_data['summary_metrics']['sentiment_distribution']['neutral']} interviews  
+- Negative: {export_data['summary_metrics']['sentiment_distribution']['negative']} interviews
+
+### Recommendations
+{"1. Leverage positive sentiment in marketing materials" if avg_sentiment > 0.6 else "1. Address negative feedback before market launch"}
+{"2. Focus on conversion optimization" if avg_conviction > 0.7 else "2. Strengthen value proposition"}
+3. Consider feedback from diverse persona types
+
+## Interview Details
+"""
         
-        st.text_area("📝 Report Vorschau", report, height=300)
+        for interview in completed_interviews:
+            report += f"""
+### {interview['persona']['name']} - {interview['persona']['job']}
+- **Sentiment:** {interview['metrics']['sentiment_score']:.1%}
+- **Purchase Intent:** {interview['metrics']['conviction_level']:.1%}
+- **Key Concerns:** {', '.join(interview['metrics']['main_concerns']) if interview['metrics']['main_concerns'] else 'None'}
+"""
+        
+        st.download_button(
+            label="📋 Export Report (MD)",
+            data=report,
+            file_name=f"research_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
+            mime="text/markdown",
+            use_container_width=True
+        )
 
-# Main Application
+# Removed old step 4 function and analytics column - now using autonomous research analysis
+
+# Main Application with Step-based Flow
 def main():
     # Initialize session state
     initialize_session_state()
     
-    # Header
-    st.markdown("""
-    <div class="main-header">
-        <h1>🔬 zero360 User Research Lab</h1>
-        <p>Führe realistische Interviews mit KI-Personas zu innovativen Produktkonzepten</p>
-    </div>
-    """, unsafe_allow_html=True)
+    # Render navigation bar
+    render_nav_bar()
     
-    # API Status indicator
-    col_status1, col_status2, col_status3 = st.columns([1, 1, 2])
+    # Render sidebar stats
+    render_sidebar_stats()
     
-    with col_status1:
-        if OPENAI_AVAILABLE:
-            st.success("✅ OpenAI verfügbar")
-        else:
-            st.error("⚠️ OpenAI API Key fehlt")
-    
-    with col_status2:
-        st.info("🤖 Live OpenAI Integration")
-    
-    # Main tabs
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "👤 Persona Builder", 
-        "🚀 Produkt Config", 
-        "💬 Interview Chat", 
-        "📥 Export & Analyse"
-    ])
-    
-    with tab1:
-        render_persona_builder()
-    
-    with tab2:
-        render_product_config()
-    
-    with tab3:
-        render_chat_interface()
-    
-    with tab4:
-        render_export_tab()
+    # Main content area - full width for step-based flow
+    st.markdown('<div class="main-content-area">', unsafe_allow_html=True)
+    render_main_content()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
