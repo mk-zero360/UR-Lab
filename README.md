@@ -5,11 +5,13 @@ Eine interaktive Streamlit-Anwendung für Workshop-Demonstrationen zu synthetisc
 ## ✨ Features
 
 - **📝 Persona-Konfiguration**: Detaillierte Erstellung von User Personas mit Demografie, Rolle und Pain Points
+- **📋 Predefined Segments**: Upload und Auswahl vordefinierter Zielgruppensegmente aus CSV/Excel-Dateien
 - **🚀 Produkt-Definition**: Eingabe von Produktbeschreibung und Value Proposition
 - **💬 KI-Interview Chat**: Interaktive Gespräche mit der konfigurierten Persona
 - **📊 Live-Insights**: Automatische Extraktion und Anzeige von Insights aus dem Gespräch
 - **📈 Visualisierungen**: Metriken und Charts zur Gesprächsanalyse
 - **💾 Export-Funktion**: Download der Interview-Daten als JSON
+- **📥 Template Download**: Vorgefertigte CSV-Vorlage für Segment-Uploads
 
 ## 🚀 Installation & Setup
 
@@ -67,10 +69,12 @@ OPENAI_API_KEY=your_api_key_here
 
 ## 🎯 Nutzung
 
-### 1. Persona konfigurieren
-- **Demografie**: Alter, Geschlecht, Beruf, Einkommen, Wohnort
-- **Rolle & Erfahrung**: Position im Unternehmen und relevante Erfahrungen
-- **Pain Points**: Hauptprobleme und Herausforderungen der Persona
+### 1. Zielgruppe definieren
+- **Custom Demographics**: Erstelle individuelle Zielgruppensegmente mit detaillierten Eigenschaften
+- **Predefined Segments**: Lade vordefinierte Segmente aus CSV/Excel-Dateien hoch
+  - Verwende die Template-Datei als Vorlage
+  - Unterstützte Spalten: segment_name, segment_description, age_range, income_level, location, tech_comfort, lifestyle, key_motivations, persona_count
+  - Automatische Generierung repräsentativer Personas basierend auf Segmentdaten
 
 ### 2. Produkt definieren
 - **Produktbeschreibung**: Was ist das Produkt/Service?

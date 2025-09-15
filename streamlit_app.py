@@ -10,6 +10,25 @@ import random
 from typing import Dict, List, Optional
 import io
 import base64
+from streamlit_chat import message
+import hashlib
+
+# Advanced NLP libraries for text analysis
+try:
+    from textblob import TextBlob
+    from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+    
+    # Initialize VADER sentiment analyzer
+    @st.cache_resource
+    def get_sentiment_analyzer():
+        """Initialize and cache VADER sentiment analyzer"""
+        return SentimentIntensityAnalyzer()
+    
+    NLP_AVAILABLE = True
+    
+except ImportError as e:
+    NLP_AVAILABLE = False
+    st.info("💡 Using basic text analysis. Install textblob and vaderSentiment for enhanced analysis.")
 
 # Audio components
 try:
@@ -22,6 +41,164 @@ except ImportError:
 import openai
 from dotenv import load_dotenv
 load_dotenv()
+
+# Predefined Segments Management
+def load_predefined_segments_from_file(uploaded_file) -> Dict[str, Dict]:
+    """
+    Load predefined segments from uploaded Excel or CSV file
+    
+    Expected columns:
+    - segment_name: Name of the segment
+    - segment_description: Description of the segment
+    - age_range: Age range (e.g., "25-35")
+    - income_level: Income level (e.g., "Middle class")
+    - location: Location (e.g., "Urban Germany")
+    - tech_comfort: Tech comfort level (e.g., "High")
+    - lifestyle: Lifestyle description
+    - key_motivations: Comma-separated motivations
+    - persona_count: Number of personas to generate (optional, defaults to 5)
+    """
+    try:
+        # Determine file type and read accordingly
+        if uploaded_file.name.endswith('.csv'):
+            df = pd.read_csv(uploaded_file)
+        elif uploaded_file.name.endswith(('.xlsx', '.xls')):
+            df = pd.read_excel(uploaded_file)
+        else:
+            raise ValueError("Unsupported file format. Please use CSV or Excel files.")
+        
+        # Validate required columns
+        required_columns = ['segment_name', 'segment_description', 'age_range']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
+        
+        segments = {}
+        for _, row in df.iterrows():
+            segment_name = str(row['segment_name']).strip()
+            if not segment_name or segment_name == 'nan':
+                continue
+                
+            # Parse key_motivations if it exists
+            key_motivations = []
+            if 'key_motivations' in df.columns and pd.notna(row['key_motivations']):
+                key_motivations = [m.strip() for m in str(row['key_motivations']).split(',') if m.strip()]
+            
+            segments[segment_name] = {
+                'segment_name': segment_name,
+                'segment_description': str(row['segment_description']) if pd.notna(row['segment_description']) else '',
+                'age_range': str(row['age_range']) if pd.notna(row['age_range']) else '',
+                'income_level': str(row['income_level']) if 'income_level' in df.columns and pd.notna(row['income_level']) else 'Not specified',
+                'location': str(row['location']) if 'location' in df.columns and pd.notna(row['location']) else 'Not specified',
+                'tech_comfort': str(row['tech_comfort']) if 'tech_comfort' in df.columns and pd.notna(row['tech_comfort']) else 'Not specified',
+                'lifestyle': str(row['lifestyle']) if 'lifestyle' in df.columns and pd.notna(row['lifestyle']) else 'Not specified',
+                'key_motivations': key_motivations,
+                'persona_count': int(row['persona_count']) if 'persona_count' in df.columns and pd.notna(row['persona_count']) else 5
+            }
+        
+        return segments
+        
+    except Exception as e:
+        st.error(f"Error loading predefined segments: {str(e)}")
+        return {}
+
+def create_segment_template_download():
+    """Create a downloadable template for predefined segments"""
+    template_data = {
+        'segment_name': [
+            'Tech-Savvy Millennials',
+            'Budget-Conscious Families',
+            'Premium Service Seekers'
+        ],
+        'segment_description': [
+            'Young professionals aged 25-35 who are early adopters of technology and value efficiency and innovation.',
+            'Families with children who prioritize value for money and practical solutions for everyday challenges.',
+            'Affluent customers who are willing to pay premium prices for high-quality products and exceptional service.'
+        ],
+        'age_range': ['25-35', '30-45', '40-60'],
+        'income_level': ['Upper middle class', 'Middle class', 'High income'],
+        'location': ['Urban Germany', 'Suburban Germany', 'Major German cities'],
+        'tech_comfort': ['High', 'Medium', 'Medium'],
+        'lifestyle': [
+            'Fast-paced, career-focused, values convenience and innovation',
+            'Family-oriented, practical, budget-conscious, values reliability',
+            'Luxury-oriented, quality-focused, values exclusivity and personal service'
+        ],
+        'key_motivations': [
+            'Efficiency, Innovation, Career advancement',
+            'Family wellbeing, Value for money, Practicality',
+            'Quality, Status, Exclusivity'
+        ],
+        'persona_count': [5, 5, 3]
+    }
+    
+    df = pd.DataFrame(template_data)
+    return df
+
+# Avatar generation for personas
+def get_persona_avatar_url(persona_name: str, persona_data: dict = None) -> str:
+    """Generate a realistic human avatar URL for a persona using DiceBear API"""
+    # Create a consistent seed based on persona name for consistent avatars
+    seed = hashlib.md5(persona_name.encode()).hexdigest()[:10]
+    
+    # Determine gender and style based on persona data or name
+    gender_styles = {
+        'male': ['adventurer', 'big-smile', 'fun-emoji'],
+        'female': ['adventurer', 'big-smile', 'fun-emoji'],
+        'neutral': ['adventurer', 'big-smile', 'personas']
+    }
+    
+    # Try to determine gender from persona data or name
+    gender = 'neutral'
+    if persona_data:
+        # Look for gender indicators in persona background or description
+        background = persona_data.get('background', '').lower()
+        if any(word in background for word in ['herr', 'mann', 'er ', 'sein', 'ihm']):
+            gender = 'male'
+        elif any(word in background for word in ['frau', 'sie ', 'ihr', 'ihre']):
+            gender = 'female'
+    
+    # Use name patterns as fallback
+    if gender == 'neutral':
+        male_names = ['thomas', 'michael', 'andreas', 'christian', 'stefan', 'markus', 'alexander']
+        female_names = ['julia', 'anna', 'sarah', 'maria', 'lisa', 'petra', 'claudia']
+        
+        name_lower = persona_name.lower()
+        if any(name in name_lower for name in male_names):
+            gender = 'male'
+        elif any(name in name_lower for name in female_names):
+            gender = 'female'
+    
+    # Generate realistic human avatar
+    style = random.choice(gender_styles[gender])
+    
+    # Use DiceBear's avataaars style for realistic human faces
+    avatar_url = f"https://api.dicebear.com/7.x/avataaars/svg?seed={seed}&backgroundColor=b6e3f4,c0aede,d1d4f9&radius=50"
+    
+    # Add some variety based on persona characteristics
+    if persona_data:
+        age = persona_data.get('age', 35)
+        # Convert age to int if it's a string or handle any other type
+        try:
+            if isinstance(age, str):
+                age = int(age)
+            elif not isinstance(age, (int, float)):
+                age = 35
+            age = int(age)  # Ensure it's an integer
+        except (ValueError, TypeError):
+            age = 35
+        
+        if age > 50:
+            avatar_url += "&hair=shortHair01,shortHair02,shortHair03"
+        elif age < 30:
+            avatar_url += "&hair=longHair01,longHair02,curlyHair"
+        
+        # Add accessories for professional personas
+        job = persona_data.get('job', '').lower()
+        if any(word in job for word in ['manager', 'director', 'consultant', 'architect']):
+            avatar_url += "&accessories=prescription02,sunglasses"
+    
+    return avatar_url
 
 # Set up OpenAI - Compatible with both local .env and Streamlit Cloud secrets
 try:
@@ -124,10 +301,11 @@ st.markdown("""
         border: 1px solid var(--gray-200);
         color: var(--gray-900);
         padding: var(--space-4) var(--space-6);
-        margin: calc(-1 * var(--space-2)) calc(-1 * var(--space-4)) var(--space-6) calc(-1 * var(--space-4));
+        margin: calc(-1 * var(--space-4)) calc(-1 * var(--space-4)) var(--space-4) calc(-1 * var(--space-4));
         border-radius: var(--radius-lg);
         box-shadow: var(--shadow-sm);
         position: relative;
+        top: -15px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -373,7 +551,44 @@ st.markdown("""
         background: linear-gradient(180deg, var(--primary-light) 0%, var(--primary-lighter) 100%);
     }
     
-    /* Chat styling - Compact */
+    /* Enhanced Chat styling for streamlit-chat */
+    .stChatMessage {
+        margin: 8px 0 !important;
+    }
+    
+    .stChatMessage > div {
+        border-radius: 12px !important;
+        padding: 12px 16px !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    /* User messages */
+    .stChatMessage[data-testid="chat-message-user"] > div {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        margin-left: 20% !important;
+    }
+    
+    /* Assistant messages */
+    .stChatMessage[data-testid="chat-message-assistant"] > div {
+        background: #f8f9fa !important;
+        color: #333 !important;
+        margin-right: 20% !important;
+        border: 1px solid #e9ecef !important;
+    }
+    
+    /* Chat input styling */
+    .stChatInput > div > div > input {
+        border-radius: 20px !important;
+        border: 2px solid #e9ecef !important;
+        padding: 12px 16px !important;
+    }
+    
+    .stChatInput > div > div > input:focus {
+        border-color: #667eea !important;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1) !important;
+    }
+    
     .chat-container {
         background: var(--gray-50);
         border-radius: var(--radius);
@@ -382,20 +597,6 @@ st.markdown("""
         max-height: 400px;
         overflow-y: auto;
         border: 1px solid var(--gray-200);
-    }
-    
-    .chat-message {
-        padding: var(--space-3);
-        margin: var(--space-2) 0;
-        border-radius: var(--radius);
-        font-size: 0.875rem;
-    }
-    
-    .user-message {
-        background: white;
-        border: 1px solid var(--gray-200);
-        margin-left: var(--space-6);
-        color: var(--gray-900);
     }
     
     .ai-message {
@@ -739,77 +940,245 @@ observer.observe(document.body, {
 </script>
 """, unsafe_allow_html=True)
 
-# Example personas data
-EXAMPLE_PERSONAS = {
-    "🏰 Luxus-Bauherr": {
-        "name": "Dr. Thomas Richter",
-        "age": 52,
-        "job": "Geschäftsführender Gesellschafter",
-        "company": "Richter & Partner Strategic Consulting (120 Mitarbeiter)",
-        "experience": "Thomas hat bereits zwei Immobilienprojekte realisiert und baut gerade seine dritte Villa am Starnberger See. Er kennt sich bestens mit Premium-Marken aus und hat ein feines Gespür für Qualität entwickelt. Seine bisherigen Bauprojekte haben ihm gezeigt, dass sich Investitionen in hochwertige Sanitärausstattung langfristig auszahlen.",
-        "pain_points": "Die größte Herausforderung ist die Balance zwischen zeitlosem Design und innovativer Technologie. Er möchte keine Kompromisse bei der Qualität eingehen, aber gleichzeitig sicherstellen, dass die Technik auch in zehn Jahren noch zeitgemäß ist. Die Koordination zwischen verschiedenen Gewerken und die Einhaltung des straffen Zeitplans bereiten ihm Sorgen. Außerdem frustriert ihn, dass viele Hersteller keine wirklich exklusiven Lösungen anbieten.",
-        "goals": "Thomas strebt nach einem Badezimmer, das als private Wellness-Oase funktioniert und gleichzeitig beeindruckende Technologie nahtlos integriert. Er möchte Produkte, die eine Geschichte erzählen und handwerkliche Perfektion verkörpern. Nachhaltigkeit ist ihm wichtig, aber sie muss sich mit Luxus vereinbaren lassen.",
-        "personality": "Perfektionist mit hohen Ansprüchen an sich und seine Umgebung. Er schätzt deutsche Ingenieurskunst und ist bereit, für außergewöhnliche Qualität zu zahlen. Marken sind für ihn wichtig, aber nur wenn sie authentisch sind und echte Innovation bieten."
+# Placeholder for future predefined personas (to be added later)
+EXAMPLE_PERSONAS = {}
+
+# Built-in Segmentation Frameworks
+BUILT_IN_SEGMENTS = {
+    "GfK Roper Consumer Styles": {
+        "description": "Global segmentation model with 8 segments based on fundamental values, attitudes, and technological affinity.",
+        "segments": {
+            "Alphas": {
+                "segment_name": "Alphas",
+                "segment_description": "Traditional and ambitious consumers who value hard work, achievement, and conventional success. They are confident leaders who believe in traditional values and social hierarchies.",
+                "age_range": "35-65",
+                "income_level": "Upper middle to high income",
+                "location": "Urban and suburban areas",
+                "tech_comfort": "Medium",
+                "lifestyle": "Traditional, achievement-oriented, status-conscious, values hierarchy and conventional success",
+                "key_motivations": ["Achievement", "Status", "Leadership", "Traditional values", "Recognition"],
+                "persona_count": 4
+            },
+            "Rooted": {
+                "segment_name": "Rooted",
+                "segment_description": "Thrifty and practical consumers who spend significant time with media and value stability. They are cautious with money and prefer familiar, reliable solutions.",
+                "age_range": "45-75",
+                "income_level": "Lower middle to middle income",
+                "location": "Rural and suburban areas",
+                "tech_comfort": "Low to Medium",
+                "lifestyle": "Frugal, media-heavy consumption, values stability and familiarity, risk-averse",
+                "key_motivations": ["Security", "Value for money", "Familiarity", "Stability", "Practicality"],
+                "persona_count": 5
+            },
+            "Trend Surfers": {
+                "segment_name": "Trend Surfers",
+                "segment_description": "Health and fitness-conscious consumers who value social recognition and staying current with trends. They are active, social, and image-conscious.",
+                "age_range": "25-45",
+                "income_level": "Middle to upper middle income",
+                "location": "Urban areas",
+                "tech_comfort": "High",
+                "lifestyle": "Active, health-conscious, trend-aware, socially engaged, image-focused",
+                "key_motivations": ["Social recognition", "Health and fitness", "Trends", "Social status", "Appearance"],
+                "persona_count": 4
+            },
+            "Easy Going": {
+                "segment_name": "Easy Going",
+                "segment_description": "Consumers primarily concerned about financial security and maintaining a comfortable lifestyle. They prefer simple, straightforward solutions.",
+                "age_range": "30-60",
+                "income_level": "Middle income",
+                "location": "Mixed urban and suburban",
+                "tech_comfort": "Medium",
+                "lifestyle": "Relaxed, financially cautious, comfort-seeking, avoids complexity",
+                "key_motivations": ["Financial security", "Comfort", "Simplicity", "Peace of mind", "Stability"],
+                "persona_count": 5
+            },
+            "Dreamers": {
+                "segment_name": "Dreamers",
+                "segment_description": "Optimistic consumers motivated by the pursuit of happiness and personal fulfillment. They are idealistic and value emotional satisfaction over material success.",
+                "age_range": "20-50",
+                "income_level": "Variable income",
+                "location": "Mixed locations",
+                "tech_comfort": "Medium to High",
+                "lifestyle": "Optimistic, idealistic, emotion-driven, values experiences over possessions",
+                "key_motivations": ["Happiness", "Personal fulfillment", "Emotional satisfaction", "Dreams and aspirations", "Authenticity"],
+                "persona_count": 4
+            },
+            "Adventurers": {
+                "segment_name": "Adventurers",
+                "segment_description": "Passionate and experience-driven consumers who seek excitement and new challenges. They are willing to take risks for rewarding experiences.",
+                "age_range": "25-55",
+                "income_level": "Middle to high income",
+                "location": "Urban areas and travel-oriented",
+                "tech_comfort": "High",
+                "lifestyle": "Adventurous, experience-seeking, risk-taking, passionate about interests",
+                "key_motivations": ["Adventure", "Passion", "New experiences", "Excitement", "Personal growth"],
+                "persona_count": 3
+            },
+            "Open-minds": {
+                "segment_name": "Open-minds",
+                "segment_description": "Balanced consumers seeking harmony between self-actualization, social responsibility, and personal pleasure. They value sustainability and ethical consumption.",
+                "age_range": "30-55",
+                "income_level": "Upper middle income",
+                "location": "Urban and progressive communities",
+                "tech_comfort": "High",
+                "lifestyle": "Balanced, socially conscious, values sustainability, seeks personal growth",
+                "key_motivations": ["Self-actualization", "Social responsibility", "Balance", "Sustainability", "Ethical consumption"],
+                "persona_count": 4
+            },
+            "Homebodies": {
+                "segment_name": "Homebodies",
+                "segment_description": "Security-oriented consumers who desire material comfort and social status through possessions. They prefer familiar environments and proven solutions.",
+                "age_range": "35-70",
+                "income_level": "Middle to upper middle income",
+                "location": "Suburban and residential areas",
+                "tech_comfort": "Low to Medium",
+                "lifestyle": "Home-focused, security-oriented, values possessions and comfort, traditional family values",
+                "key_motivations": ["Material security", "Status through possessions", "Comfort", "Family", "Tradition"],
+                "persona_count": 5
+            }
+        }
     },
-    "👩‍ Architektin": {
-        "name": "Julia Schneider",
-        "age": 38,
-        "job": "Senior Architektin und Projektleiterin",
-        "company": "Architekturbüro Herzog & Kollegen (35 Mitarbeiter)",
-        "experience": "Julia hat sich in den letzten zwölf Jahren auf hochwertige Wohnbauprojekte und Hotelsanierungen spezialisiert. Sie kennt das zero360-Sortiment im Detail und hat bereits über 40 Projekte mit deren Produkten realisiert. Ihre Expertise liegt in der Verbindung von Funktionalität und Ästhetik.",
-        "pain_points": "Julia kämpft oft mit den unterschiedlichen Anforderungen von Bauherren, Budgetvorgaben und technischen Möglichkeiten. Die Verfügbarkeit von detaillierten CAD-Daten und BIM-Modellen ist nicht immer gegeben, was ihre Planungsarbeit erschwert. Sie benötigt verlässliche Lieferzeiten und ärgert sich über kurzfristige Produktabkündigungen.",
-        "goals": "Julia möchte ihren Kunden Badlösungen präsentieren, die sowohl heute als auch in zwanzig Jahren noch überzeugen. Sie strebt danach, als Expertin für innovative Badgestaltung wahrgenommen zu werden und sucht nach Produkten, die ihre Entwürfe unterstützen.",
-        "personality": "Detailorientiert und systematisch in ihrer Arbeitsweise. Sie schätzt klare Kommunikation und professionelle Zusammenarbeit. Innovation fasziniert sie, aber sie bleibt pragmatisch und denkt immer an die Umsetzbarkeit."
+    "Sinus Milieus (Germany)": {
+        "description": "German sociological segmentation model with 10 milieus based on social status and value orientation.",
+        "segments": {
+            "Conservative Establishment": {
+                "segment_name": "Conservative Establishment",
+                "segment_description": "Upper-class traditional milieu with strong sense of responsibility and conservative values. They maintain established structures and prefer proven solutions.",
+                "age_range": "50-80",
+                "income_level": "High income",
+                "location": "Affluent urban and suburban areas",
+                "tech_comfort": "Low to Medium",
+                "lifestyle": "Traditional, conservative, responsibility-focused, maintains social structures",
+                "key_motivations": ["Tradition", "Responsibility", "Social order", "Quality", "Exclusivity"],
+                "persona_count": 3
+            },
+            "Liberal Intellectual Milieu": {
+                "segment_name": "Liberal Intellectual Milieu",
+                "segment_description": "Highly educated progressive milieu that values intellectual discourse, cultural engagement, and social justice. They are critical thinkers and change advocates.",
+                "age_range": "35-70",
+                "income_level": "High income",
+                "location": "Urban cultural centers",
+                "tech_comfort": "High",
+                "lifestyle": "Intellectual, progressive, culturally engaged, values education and discourse",
+                "key_motivations": ["Intellectual stimulation", "Social justice", "Cultural engagement", "Progressive change", "Education"],
+                "persona_count": 4
+            },
+            "Performer Milieu": {
+                "segment_name": "Performer Milieu",
+                "segment_description": "Success-oriented efficiency milieu focused on career advancement and material success. They are competitive, ambitious, and technology-savvy.",
+                "age_range": "25-50",
+                "income_level": "High income",
+                "location": "Major urban centers",
+                "tech_comfort": "Very High",
+                "lifestyle": "Career-focused, competitive, efficiency-oriented, technology-savvy, status-conscious",
+                "key_motivations": ["Career success", "Efficiency", "Competition", "Status", "Innovation"],
+                "persona_count": 4
+            },
+            "Expeditive Milieu": {
+                "segment_name": "Expeditive Milieu",
+                "segment_description": "Young, pragmatic milieu that is flexible, success-oriented, and globally connected. They value mobility, networking, and quick solutions.",
+                "age_range": "20-40",
+                "income_level": "Upper middle to high income",
+                "location": "Metropolitan areas",
+                "tech_comfort": "Very High",
+                "lifestyle": "Flexible, pragmatic, globally connected, mobile, networking-focused",
+                "key_motivations": ["Flexibility", "Success", "Global connectivity", "Mobility", "Networking"],
+                "persona_count": 4
+            },
+            "Adaptive Pragmatist Milieu": {
+                "segment_name": "Adaptive Pragmatist Milieu",
+                "segment_description": "Modern mainstream milieu that balances family life with professional ambitions. They are practical, adaptable, and seek work-life balance.",
+                "age_range": "30-60",
+                "income_level": "Middle to upper middle income",
+                "location": "Suburban and urban areas",
+                "tech_comfort": "High",
+                "lifestyle": "Balanced, family-oriented, adaptable, practical, seeks harmony",
+                "key_motivations": ["Work-life balance", "Family", "Practicality", "Adaptability", "Harmony"],
+                "persona_count": 5
+            },
+            "Socio-ecological Milieu": {
+                "segment_name": "Socio-ecological Milieu",
+                "segment_description": "Environmentally and socially conscious milieu that prioritizes sustainability and social responsibility. They value authentic, ethical consumption.",
+                "age_range": "25-55",
+                "income_level": "Middle to upper middle income",
+                "location": "Progressive urban and rural communities",
+                "tech_comfort": "Medium to High",
+                "lifestyle": "Environmentally conscious, socially responsible, values authenticity and sustainability",
+                "key_motivations": ["Sustainability", "Social responsibility", "Authenticity", "Environmental protection", "Ethical consumption"],
+                "persona_count": 4
+            }
+        }
     },
-    "🔧 Installateur-Meister": {
-        "name": "Michael Wagner",
-        "age": 46,
-        "job": "Inhaber und Installateur-Meister",
-        "company": "Wagner Haustechnik GmbH (12 Mitarbeiter)",
-        "experience": "Michael führt seit fünfzehn Jahren seinen eigenen Betrieb und hat sich einen exzellenten Ruf in der Region erarbeitet. Er installiert zero360-Produkte seit seiner Gesellenzeit und kennt die technischen Besonderheiten genau. Sein Betrieb ist auf Komplettsanierungen und gehobene Neubauten spezialisiert.",
-        "pain_points": "Die größte Herausforderung ist der Fachkräftemangel und die damit verbundene Arbeitsbelastung. Er ärgert sich über komplizierte Montageanleitungen und Produkte, die unnötig viel Zeit bei der Installation benötigen. Reklamationen wegen Produktfehlern kosten ihn Zeit und schädigen seinen Ruf.",
-        "goals": "Michael möchte seinen Kunden zuverlässige Qualität bieten und dabei effizient arbeiten. Er sucht nach Produkten, die sich schnell und fehlerfrei installieren lassen und lange halten. Wichtig ist ihm eine gute Marge und die Möglichkeit, sich durch Fachwissen und Qualitätsprodukte von der Konkurrenz abzuheben.",
-        "personality": "Bodenständig und gradlinig. Er sagt, was er denkt, und schätzt ehrliche Kommunikation. Qualität und Zuverlässigkeit sind seine obersten Prinzipien. Er ist stolz auf sein Handwerk und sein Fachwissen."
-    },
-    "👩‍💼 Modernisiererin": {
-        "name": "Anna Bergmann",
-        "age": 42,
-        "job": "Marketing Managerin",
-        "company": "Mittelständisches Maschinenbauunternehmen (300 Mitarbeiter)",
-        "experience": "Anna hat vor drei Jahren ein Haus aus den 1970er Jahren gekauft und modernisiert es schrittweise. Das Badezimmer steht als nächstes großes Projekt an. Sie hat bereits Küche und Wohnbereich renoviert und dabei ein Gespür für Qualitätsunterschiede entwickelt.",
-        "pain_points": "Anna fühlt sich von der Produktvielfalt überfordert und unsicher, welche technischen Features wirklich sinnvoll sind. Das Budget ist begrenzt, aber sie möchte keine billigen Kompromisse eingehen, die sie später bereut. Die Koordination der verschiedenen Handwerker stresst sie.",
-        "goals": "Anna möchte ein modernes, pflegeleichtes Badezimmer, das den Wert ihrer Immobilie steigert. Sie sucht nach einem optimalen Preis-Leistungs-Verhältnis und Produkten, die lange halten. Das neue Bad soll den Alltag ihrer vierköpfigen Familie erleichtern.",
-        "personality": "Strukturiert und recherchiert gründlich, bevor sie Entscheidungen trifft. Sie lässt sich von Trends inspirieren, bleibt aber pragmatisch. Qualität ist ihr wichtig, aber sie achtet auf ein vernünftiges Preis-Leistungs-Verhältnis."
-    },
-    "👴 Rentner": {
-        "name": "Werner Hoffmann",
-        "age": 68,
-        "job": "Pensionierter Gymnasiallehrer",
-        "company": "Im Ruhestand, ehrenamtlich aktiv im Seniorenbeirat",
-        "experience": "Werner lebt seit vierzig Jahren im selben Einfamilienhaus. Nach einem Sturz seiner Frau vor zwei Jahren haben sie begonnen, das Haus altersgerecht umzubauen. Das Badezimmer im Erdgeschoss wurde bereits angepasst, nun steht das obere Bad zur Renovierung an.",
-        "pain_points": "Die größte Sorge bereitet Werner die Zukunftssicherheit der Investition - das Bad soll sie durch die nächsten zwanzig Jahre tragen. Die Bedienung moderner Armaturen überfordert teilweise seine Frau, die beginnende Arthrose in den Händen hat. Er ärgert sich über Produkte, die stigmatisierend nach Krankenhaus aussehen.",
-        "goals": "Werner möchte ein Badezimmer, das Sicherheit bietet, ohne wie ein Pflegebad auszusehen. Er sucht nach Lösungen, die sich intuitiv bedienen lassen und auch mit nachlassender Kraft und Beweglichkeit funktionieren. Wichtig ist ihm, dass er und seine Frau möglichst lange selbstständig leben können.",
-        "personality": "Analytischer Mensch, der Entscheidungen gründlich durchdenkt. Durch seine naturwissenschaftliche Prägung interessiert er sich für technische Details und hinterfragt Werbeversprechen kritisch. Qualität und Langlebigkeit sind ihm wichtiger als Trends."
-    },
-    "👨‍👩‍👧‍👦 Familienpaar": {
-        "name": "Sandra & Marco Keller",
-        "age": 37,
-        "job": "Teilzeit-Controllerin & Vertriebsleiter",
-        "company": "Energieversorgung & Medizintechnik",
-        "experience": "Das Paar hat vor fünf Jahren ein Reihenhaus gekauft und renoviert es scheibchenweise. Mit drei Kindern (4, 8 und 11 Jahre) ist das Badezimmer der neuralgische Punkt jeden Morgens. Sie haben bereits ein Gäste-WC eingebaut, aber das Hauptbadezimmer platzt aus allen Nähten.",
-        "pain_points": "Der Morgenstress ist ihr größtes Problem - alle wollen gleichzeitig ins Bad, und es gibt ständig Streit. Die Unordnung durch fünf Personen macht Sandra wahnsinnig, es fehlt an cleveren Stauraumlösungen. Die Kinder verschwenden Wasser und beschädigen ständig etwas.",
-        "goals": "Sandra und Marco träumen von einem Familienbad, das den Alltag entschärft statt verkompliziert. Sie brauchen robuste Produkte, die den täglichen Härtetest mit drei Kindern überstehen. Wichtig sind ihnen zwei Waschplätze, um den Morgenstau zu reduzieren.",
-        "personality": "Sandra ist die Organisatorin, die praktische Lösungen über Design stellt. Marco ist der Zahlenmensch, der jede Ausgabe hinterfragt. Beide sind gestresst aber liebevoll, wollen das Beste für ihre Familie."
-    },
-    "💻 Berufseinsteiger": {
-        "name": "Lukas Bauer",
-        "age": 26,
-        "job": "Junior Software Developer",
-        "company": "Tech-Startup mit 45 Mitarbeitern (Fintech-Bereich)",
-        "experience": "Lukas ist vor sechs Monaten in seine erste eigene Wohnung gezogen - eine 55qm Altbauwohnung in einem hippen Stadtviertel. Das Badezimmer ist klein aber hat Potenzial. Er informiert sich hauptsächlich online, schaut YouTube-Tutorials und liest Bewertungen.",
-        "pain_points": "Das größte Problem ist das begrenzte Budget - mit dem Einstiegsgehalt muss er jeden Euro zweimal umdrehen. Die kleine Badezimmergröße macht es schwierig, clevere Lösungen zu finden. Er ist unsicher, welche Investitionen sich lohnen, da er nicht weiß, wie lange er in der Wohnung bleibt.",
-        "goals": "Lukas möchte sein kleines Bad in eine moderne, funktionale Nasszelle verwandeln, die seinen Lifestyle widerspiegelt. Er sucht nach platzsparenden Lösungen, die das Bad größer wirken lassen. Das Bad soll instagrammable sein - er ist stolz auf seine erste eigene Wohnung.",
-        "personality": "Digital-affin und recherchiert alles online. Er ist experimentierfreudig und offen für neue Marken, die gutes Design zu fairen Preisen bieten. DIY-Projekte reizen ihn, Social Media beeinflusst seinen Geschmack."
+    "zero360 User Segments": {
+        "description": "Contemporary German market segments based on modern consumer behaviors and digital adoption patterns.",
+        "segments": {
+            "Junge Berufsstarter": {
+                "segment_name": "Junge Berufsstarter",
+                "segment_description": "Junge Erwachsene zwischen 20-29 Jahren in den ersten Berufsjahren. Erstes regelmäßiges Einkommen, leben urban, nutzen alle digitalen Kanäle selbstverständlich. Experimentierfreudig bei neuen Marken und Services, steigendes Budget.",
+                "age_range": "20-29",
+                "income_level": "Niedrig bis Mittel (€25.000 - €45.000)",
+                "location": "Großstädte, urbane Zentren",
+                "tech_comfort": "Sehr hoch",
+                "lifestyle": "Digital Native, WG-Leben oder erste eigene Wohnung, hohe Social Media Nutzung, experimentierfreudig bei Marken, Ausgehen und Networking wichtig, Work-Life-Balance suchend",
+                "key_motivations": ["Karriereentwicklung", "Unabhängigkeit", "Soziale Anerkennung", "Neue Erfahrungen", "Preis-Leistung"],
+                "persona_count": 5
+            },
+            "Premium-Käufer": {
+                "segment_name": "Premium-Käufer",
+                "segment_description": "Konsumenten mit hoher Kaufkraft und Luxuspräferenz. Qualität und Exklusivität vor Preis. Markentreu, erwarten exzellenten Service und besondere Einkaufserlebnisse.",
+                "age_range": "30-70",
+                "income_level": "Sehr hoch (€100.000+)",
+                "location": "Beste Lagen, Großstädte",
+                "tech_comfort": "Hoch",
+                "lifestyle": "Luxusmarken, Statussymbole, Business Class, Premium-Services, Kunst und Kultur, Gourmet-Restaurants, Persönlicher Service",
+                "key_motivations": ["Exklusivität", "Prestige", "Qualität", "Service", "Individualität"],
+                "persona_count": 3
+            },
+            "Umweltbewusste Millennials": {
+                "segment_name": "Umweltbewusste Millennials",
+                "segment_description": "Starkes Umweltbewusstsein, reduzieren ökologischen Fußabdruck. Second-Hand und Sharing selbstverständlich. Unterstützen Purpose-Brands, boykottieren Umweltsünder.",
+                "age_range": "28-40",
+                "income_level": "Mittel (€35.000 - €65.000)",
+                "location": "Großstädte, Szeneviertel",
+                "tech_comfort": "Hoch",
+                "lifestyle": "Second-Hand, Sharing Economy, Veggie/Vegan, Fahrrad/ÖPNV, Zero Waste, Aktivismus, Social Media für Causes",
+                "key_motivations": ["Nachhaltigkeit", "Klimaschutz", "Fairness", "Authentizität", "Minimalismus"],
+                "persona_count": 4
+            },
+            "Hybride Arbeiter": {
+                "segment_name": "Hybride Arbeiter",
+                "segment_description": "Flexibles Arbeitsmodell Home-Office/Büro. Schätzen Flexibilität, investieren in Home-Office. Work-Life-Integration statt Trennung.",
+                "age_range": "25-55",
+                "income_level": "Mittel bis Hoch (€40.000 - €85.000)",
+                "location": "Städte und Umland",
+                "tech_comfort": "Hoch",
+                "lifestyle": "Home-Office Setup, Collaboration Tools, Flexible Zeiten, Coworking, Digital Nomad Tendenz, Selbstorganisation",
+                "key_motivations": ["Flexibilität", "Work-Life-Integration", "Produktivität", "Autonomie", "Balance"],
+                "persona_count": 4
+            },
+            "Generation Z": {
+                "segment_name": "Generation Z",
+                "segment_description": "Jüngste Konsumentengeneration, mit Internet aufgewachsen. Permanent online, Social Media zentral. Nachhaltigkeit und Purpose wichtig, kritisch gegenüber traditionellen Marken.",
+                "age_range": "16-24",
+                "income_level": "Niedrig (Taschengeld bis €30.000)",
+                "location": "Überall, digital vernetzt",
+                "tech_comfort": "Sehr hoch",
+                "lifestyle": "Always-on, TikTok/Instagram native, Streaming statt TV, Gaming, Influencer-orientiert, Umweltbewusst, Diversität wichtig",
+                "key_motivations": ["Authentizität", "Nachhaltigkeit", "Individualität", "Soziale Gerechtigkeit", "Instant Gratification"],
+                "persona_count": 5
+            },
+            "Early Adopter": {
+                "segment_name": "Early Adopter",
+                "segment_description": "Technologiebegeisterte Erstkäufer neuer Produkte. Risikobereit, Meinungsführer, beeinflussen soziales Umfeld. Gut informiert über Neuheiten, überdurchschnittliches Einkommen.",
+                "age_range": "25-45",
+                "income_level": "Mittel bis Hoch (€50.000 - €100.000)",
+                "location": "Großstädte, Tech-Hubs",
+                "tech_comfort": "Sehr hoch",
+                "lifestyle": "Tech-Gadgets, Crowdfunding-Backer, Beta-Tester, Tech-Blogs, Messen und Events, Opinion Leader, Social Media aktiv",
+                "key_motivations": ["Innovation", "Erste sein", "Technologie", "Status", "Einfluss"],
+                "persona_count": 4
+            }
+        }
     }
 }
 
@@ -846,6 +1215,16 @@ def initialize_session_state():
         'target_demographics': {},
         'assembled_personas': [],
         
+        # Interview context configuration
+        'interview_context': {
+            'customer_status': 'Potential new customer (never used product)',
+            'product_knowledge': 'Basic awareness',
+            'purchase_intent': 'Considering purchase soon',
+            'interview_setting': 'Product discovery interview',
+            'conversation_style': 'Casual and exploratory',
+            'specific_context': ''
+        },
+        
         # Legacy (for backward compatibility during transition)
         'demo_mode': False,
         'voice_mode': False
@@ -857,31 +1236,54 @@ def initialize_session_state():
 
 # Autonomous Interview Generation
 def generate_diverse_persona() -> Dict:
-    """Generate a diverse persona using AI"""
+    """Generate a diverse persona using AI with improved name diversity"""
     if not OPENAI_AVAILABLE:
-        # Fallback to predefined personas
-        personas = list(EXAMPLE_PERSONAS.values())
-        return random.choice(personas)
+        # No fallback personas available - return basic persona structure
+        return {
+            "name": "Sample Persona",
+            "age": 35,
+            "job": "Professional",
+            "company": "Sample Company",
+            "experience": "Sample experience description",
+            "pain_points": "Sample pain points",
+            "goals": "Sample goals",
+            "personality": "Sample personality description"
+        }
+    
+    # Diverse German names to ensure variety
+    german_names = {
+        'male_first': ['Alexander', 'Andreas', 'Bernd', 'Christian', 'Daniel', 'David', 'Dennis', 'Dirk', 'Felix', 'Florian', 'Frank', 'Günther', 'Hans', 'Heiko', 'Holger', 'Jan', 'Jens', 'Joachim', 'Jörg', 'Kai', 'Klaus', 'Lars', 'Lukas', 'Manuel', 'Marco', 'Marcus', 'Mario', 'Martin', 'Matthias', 'Max', 'Michael', 'Nico', 'Oliver', 'Patrick', 'Peter', 'Philipp', 'Ralf', 'Robert', 'Sebastian', 'Stefan', 'Thomas', 'Thorsten', 'Tim', 'Tobias', 'Uwe', 'Wolfgang'],
+        'female_first': ['Alexandra', 'Andrea', 'Angela', 'Anja', 'Anna', 'Annette', 'Antje', 'Barbara', 'Birgit', 'Brigitte', 'Carmen', 'Carola', 'Claudia', 'Daniela', 'Doris', 'Eva', 'Gabi', 'Heike', 'Ines', 'Jana', 'Jennifer', 'Jessica', 'Julia', 'Karin', 'Katja', 'Katrin', 'Kerstin', 'Kristina', 'Laura', 'Lea', 'Lisa', 'Manuela', 'Maria', 'Marion', 'Martina', 'Melanie', 'Monika', 'Nadine', 'Nicole', 'Petra', 'Sabine', 'Sandra', 'Sara', 'Silke', 'Simone', 'Stefanie', 'Susanne', 'Tanja', 'Ute', 'Vanessa'],
+        'surnames': ['Müller', 'Schmidt', 'Schneider', 'Fischer', 'Weber', 'Meyer', 'Wagner', 'Becker', 'Schulz', 'Hoffmann', 'Schäfer', 'Koch', 'Bauer', 'Richter', 'Klein', 'Wolf', 'Schröder', 'Neumann', 'Schwarz', 'Zimmermann', 'Braun', 'Krüger', 'Hofmann', 'Hartmann', 'Lange', 'Schmitt', 'Werner', 'Schmitz', 'Krause', 'Meier', 'Lehmann', 'Schmid', 'Schulze', 'Maier', 'Köhler', 'Herrmann', 'König', 'Walter', 'Mayer', 'Huber', 'Kaiser', 'Fuchs', 'Peters', 'Lang', 'Scholz', 'Möller', 'Weiß', 'Jung', 'Hahn', 'Schubert', 'Vogel', 'Friedrich', 'Keller', 'Günther', 'Frank', 'Berger', 'Winkler', 'Roth', 'Beck', 'Lorenz', 'Baumann', 'Franke', 'Albrecht', 'Ludwig', 'Winter', 'Kraus', 'Martin', 'Schenk', 'Krämer', 'Vogt', 'Stein', 'Jäger', 'Otto', 'Sommer', 'Groß', 'Seidel', 'Heinrich', 'Brandt', 'Haas', 'Schreiber', 'Graf', 'Schulte', 'Dietrich', 'Ziegler', 'Kuhn', 'Kühn', 'Pohl', 'Engel', 'Horn', 'Busch', 'Bergmann', 'Thomas', 'Voigt', 'Sauer', 'Arnold', 'Wolff', 'Pfeiffer']
+    }
+    
+    import random
     
     try:
         client = openai.OpenAI(api_key=OPENAI_API_KEY)
         
+        # Pre-select a diverse name to ensure variety
+        gender = random.choice(['male', 'female'])
+        first_name = random.choice(german_names[f'{gender}_first'])
+        surname = random.choice(german_names['surnames'])
+        full_name = f"{first_name} {surname}"
+        
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",  # Use latest model for better quality
             messages=[
-                {"role": "system", "content": """You are a persona generator for user research. Create diverse, realistic personas for bathroom/sanitary product research.
+                {"role": "system", "content": f"""You are a persona generator for user research. Create diverse, realistic personas for bathroom/sanitary product research.
 
 Generate a JSON object with these exact fields:
-- name: Full name (German)
+- name: Use exactly this name: "{full_name}"
 - age: Age between 25-70
-- job: Job title
+- job: Job title (varied professional backgrounds)
 - company: Company description
 - experience: Background and experience with bathroom products/renovations
 - pain_points: Current challenges and frustrations
 - goals: What they want to achieve
 - personality: Communication style and decision-making approach
 
-Make each persona unique with different demographics, life situations, and perspectives. Focus on realistic German customers."""},
+Make each persona unique with different demographics, life situations, and perspectives. Focus on realistic German customers with diverse backgrounds, income levels, family situations, and living arrangements. Avoid stereotypes and create authentic, multi-dimensional characters."""},
                 {"role": "user", "content": "Generate a unique persona for bathroom product research."}
             ],
             max_tokens=800,
@@ -901,12 +1303,20 @@ Make each persona unique with different demographics, life situations, and persp
         
     except Exception as e:
         st.error(f"Error generating persona: {str(e)}")
-        # Fallback to predefined personas
-        personas = list(EXAMPLE_PERSONAS.values())
-        return random.choice(personas)
+        # Return basic fallback persona
+        return {
+            "name": "Sample Persona",
+            "age": 35,
+            "job": "Professional",
+            "company": "Sample Company",
+            "experience": "Sample experience description",
+            "pain_points": "Sample pain points",
+            "goals": "Sample goals",
+            "personality": "Sample personality description"
+        }
 
-def generate_interview_questions(persona: Dict, product: Dict, num_questions: int = 8) -> List[str]:
-    """Generate diverse interview questions for a persona and product"""
+def generate_interview_questions(persona: Dict, product: Dict, num_questions: int = 8, interview_context: Dict = None) -> List[str]:
+    """Generate diverse interview questions for a persona and product with context"""
     if not OPENAI_AVAILABLE:
         return [
             f"Was ist Ihr erster Eindruck vom {product.get('name', 'Produkt')}?",
@@ -919,28 +1329,60 @@ def generate_interview_questions(persona: Dict, product: Dict, num_questions: in
             "Was fehlt Ihnen noch für eine Kaufentscheidung?"
         ]
     
+    # Default context if none provided
+    if interview_context is None:
+        interview_context = {
+            "customer_status": "Potential new customer (never used product)",
+            "product_knowledge": "Basic awareness",
+            "purchase_intent": "Considering purchase soon",
+            "interview_setting": "Product discovery interview",
+            "conversation_style": "Casual and exploratory",
+            "specific_context": ""
+        }
+    
     try:
         client = openai.OpenAI(api_key=OPENAI_API_KEY)
         
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": f"""You are a user research expert. Generate {num_questions} diverse, open-ended interview questions in German.
+        # Build context-aware prompt
+        context_prompt = f"""
+Interview Context:
+- Customer Status: {interview_context.get('customer_status', 'Potential new customer')}
+- Product Knowledge: {interview_context.get('product_knowledge', 'Basic awareness')}  
+- Purchase Intent: {interview_context.get('purchase_intent', 'Considering purchase soon')}
+- Interview Setting: {interview_context.get('interview_setting', 'Product discovery interview')}
+- Conversation Style: {interview_context.get('conversation_style', 'Casual and exploratory')}
+- Specific Context: {interview_context.get('specific_context', 'N/A')}
 
-Persona: {persona.get('name', 'Person')} - {persona.get('job', 'Professional')}
+Persona: {persona.get('name', 'Person')} - {persona.get('job', 'Professional')}, Age {persona.get('age', 'Unknown')}
 Product: {product.get('name', 'Product')}
+"""
+        
+        response = client.chat.completions.create(
+            model="gpt-4o",  # Use improved model
+            messages=[
+                {"role": "system", "content": f"""You are a user research expert. Generate {num_questions} diverse, contextually appropriate interview questions in German.
+
+{context_prompt}
 
 Questions should:
-1. Explore different aspects (needs, concerns, usage, decision-making)
-2. Be open-ended and conversational
-3. Uncover deep insights about the persona's perspective
-4. Be appropriate for this specific persona's background
-5. Be in German
+1. Match the interview context and customer relationship
+2. Be appropriate for the persona's knowledge level and intent
+3. Follow natural conversation flow (avoid starting with job/professional role unless relevant)
+4. Explore different aspects based on the scenario
+5. Be open-ended and encourage detailed responses
+6. Be in natural, conversational German
+7. Consider the specific context if provided
+
+For example:
+- If "No prior knowledge": Start with awareness and discovery questions
+- If "Existing customer": Focus on experience and satisfaction
+- If "Ready to buy": Focus on final concerns and decision factors
+- If "Just browsing": Focus on needs assessment and education
 
 Return ONLY a JSON array of question strings, no other text."""},
-                {"role": "user", "content": f"Generate {num_questions} interview questions for this persona and product combination."}
+                {"role": "user", "content": f"Generate {num_questions} contextually appropriate interview questions for this specific scenario."}
             ],
-            max_tokens=600,
+            max_tokens=800,
             temperature=0.8
         )
         
@@ -1008,14 +1450,17 @@ def conduct_autonomous_interview(persona: Dict, product: Dict, questions: List[s
     return interview_data
 
 def calculate_interview_metrics(conversation: List[Dict]) -> Dict:
-    """Calculate metrics for a completed interview"""
+    """Calculate comprehensive metrics for a completed interview using NLU"""
     ai_messages = [msg['content'] for msg in conversation if msg['role'] == 'assistant']
     
     if not ai_messages:
         return {
             'sentiment_score': 0.5,
             'conviction_level': 0.5,
-            'main_concerns': []
+            'main_concerns': [],
+            'emotions': {},
+            'keywords': [],
+            'dominant_emotion': 'neutral'
         }
     
     # Calculate average sentiment
@@ -1030,10 +1475,39 @@ def calculate_interview_metrics(conversation: List[Dict]) -> Dict:
     for msg in ai_messages:
         all_concerns.extend(extract_concerns(msg))
     
+    # Analyze emotions across all messages
+    all_emotions = {}
+    for msg in ai_messages:
+        emotions = analyze_emotions(msg)
+        for emotion, score in emotions.items():
+            all_emotions[emotion] = all_emotions.get(emotion, 0) + score
+    
+    # Normalize emotion scores
+    if all_emotions:
+        total_emotion_score = sum(all_emotions.values())
+        if total_emotion_score > 0:
+            all_emotions = {k: v/total_emotion_score for k, v in all_emotions.items()}
+    
+    # Find dominant emotion
+    dominant_emotion = 'neutral'
+    if all_emotions:
+        dominant_emotion = max(all_emotions.keys(), key=lambda k: all_emotions[k])
+    
+    # Extract keywords from all messages
+    all_keywords = []
+    for msg in ai_messages:
+        all_keywords.extend(extract_keywords(msg))
+    
+    # Get unique keywords
+    unique_keywords = list(set(all_keywords))[:10]  # Top 10 unique keywords
+    
     return {
         'sentiment_score': avg_sentiment,
         'conviction_level': conviction,
-        'main_concerns': list(set(all_concerns))
+        'main_concerns': list(set(all_concerns)),
+        'emotions': all_emotions,
+        'keywords': unique_keywords,
+        'dominant_emotion': dominant_emotion
     }
 
 # AI Response Functions
@@ -1049,7 +1523,7 @@ def get_openai_response(message: str, persona: Dict, product: Dict) -> str:
         client = openai.OpenAI(api_key=OPENAI_API_KEY)
         
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",  # Use improved model
             messages=[
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": message}
@@ -1175,9 +1649,40 @@ Bleiben Sie immer in Ihrer Rolle. Falls Fragen außerhalb Ihres Expertisebereich
 
 # Analytics Functions
 def analyze_sentiment(text: str) -> float:
-    """Simple sentiment analysis"""
-    positive_words = ['gut', 'toll', 'super', 'perfekt', 'interessant', 'hilfreich', 'gefällt', 'liebe']
-    negative_words = ['schlecht', 'problem', 'schwierig', 'teuer', 'kompliziert', 'frustrierend']
+    """Advanced sentiment analysis using TextBlob and VADER"""
+    if NLP_AVAILABLE and text.strip():
+        try:
+            # Use VADER for sentiment analysis (better for informal text)
+            analyzer = get_sentiment_analyzer()
+            vader_scores = analyzer.polarity_scores(text)
+            
+            # VADER compound score ranges from -1 to 1, convert to 0-1
+            vader_sentiment = (vader_scores['compound'] + 1) / 2
+            
+            # Use TextBlob as secondary analysis
+            blob = TextBlob(text)
+            textblob_sentiment = (blob.sentiment.polarity + 1) / 2
+            
+            # Average the two approaches for more robust analysis
+            combined_sentiment = (vader_sentiment + textblob_sentiment) / 2
+            
+            return max(0.0, min(1.0, combined_sentiment))
+            
+        except Exception as e:
+            # Fall back to simple analysis if NLP fails
+            pass
+    
+    # Fallback: Enhanced keyword-based sentiment analysis
+    positive_words = [
+        'gut', 'toll', 'super', 'perfekt', 'interessant', 'hilfreich', 'gefällt', 'liebe', 
+        'positiv', 'zufrieden', 'empfehlen', 'begeistert', 'fantastisch', 'großartig',
+        'excellent', 'great', 'good', 'amazing', 'wonderful', 'love', 'like', 'positive'
+    ]
+    negative_words = [
+        'schlecht', 'problem', 'schwierig', 'teuer', 'kompliziert', 'frustrierend', 
+        'negativ', 'enttäuscht', 'unzufrieden', 'ärgerlich', 'furchtbar', 'schrecklich',
+        'bad', 'terrible', 'awful', 'hate', 'dislike', 'negative', 'poor', 'disappointing'
+    ]
     
     text_lower = text.lower()
     pos_count = sum(1 for word in positive_words if word in text_lower)
@@ -1187,6 +1692,125 @@ def analyze_sentiment(text: str) -> float:
         return 0.5
     
     return pos_count / (pos_count + neg_count)
+
+def analyze_emotions(text: str) -> Dict[str, float]:
+    """Analyze emotions in text using TextBlob and enhanced keyword matching"""
+    emotions = {}
+    
+    if NLP_AVAILABLE and text.strip():
+        try:
+            # Use TextBlob for basic sentiment analysis as emotion base
+            blob = TextBlob(text)
+            polarity = blob.sentiment.polarity
+            subjectivity = blob.sentiment.subjectivity
+            
+            # Map sentiment to basic emotions
+            if polarity > 0.3:
+                emotions['joy'] = min(1.0, polarity)
+                emotions['trust'] = min(1.0, polarity * 0.8)
+            elif polarity < -0.3:
+                emotions['anger'] = min(1.0, abs(polarity))
+                emotions['sadness'] = min(1.0, abs(polarity) * 0.8)
+            
+            # High subjectivity might indicate surprise or strong emotions
+            if subjectivity > 0.7:
+                emotions['surprise'] = min(1.0, subjectivity * 0.6)
+                
+        except Exception as e:
+            pass
+    
+    # Enhanced emotion detection based on keywords (German + English)
+    emotion_keywords = {
+        'joy': [
+            'freude', 'glücklich', 'begeistert', 'toll', 'super', 'fantastisch', 'wunderbar',
+            'joy', 'happy', 'excited', 'great', 'amazing', 'wonderful', 'love', 'delighted'
+        ],
+        'trust': [
+            'vertrauen', 'sicher', 'zuverlässig', 'glaubwürdig', 'professionell', 'qualität',
+            'trust', 'reliable', 'safe', 'secure', 'professional', 'quality', 'confident'
+        ],
+        'fear': [
+            'angst', 'sorge', 'bedenken', 'risiko', 'unsicher', 'zweifel', 'vorsicht',
+            'fear', 'worry', 'concern', 'risk', 'uncertain', 'doubt', 'anxious'
+        ],
+        'anger': [
+            'ärger', 'frustriert', 'wütend', 'schlecht', 'problem', 'ärgerlich',
+            'anger', 'frustrated', 'angry', 'annoyed', 'irritated', 'upset'
+        ],
+        'surprise': [
+            'überrascht', 'wow', 'erstaunlich', 'unglaublich', 'überraschend', 'unerwartet',
+            'surprised', 'wow', 'amazing', 'incredible', 'unexpected', 'astonishing'
+        ],
+        'sadness': [
+            'traurig', 'enttäuscht', 'bedauerlich', 'schade', 'unglücklich',
+            'sad', 'disappointed', 'unfortunate', 'regret', 'unhappy'
+        ]
+    }
+    
+    text_lower = text.lower()
+    
+    for emotion, keywords in emotion_keywords.items():
+        # Count keyword matches
+        matches = sum(1 for keyword in keywords if keyword in text_lower)
+        if matches > 0:
+            # Calculate score based on matches and keyword list size
+            keyword_score = min(1.0, matches / max(len(keywords) * 0.3, 1))
+            
+            # Combine with any existing score from TextBlob
+            existing_score = emotions.get(emotion, 0)
+            emotions[emotion] = max(existing_score, keyword_score)
+    
+    return emotions
+
+def extract_keywords(text: str) -> List[str]:
+    """Extract key terms and topics from text using TextBlob and enhanced filtering"""
+    keywords = []
+    
+    if NLP_AVAILABLE and text.strip():
+        try:
+            # Use TextBlob for noun phrase extraction
+            blob = TextBlob(text)
+            noun_phrases = blob.noun_phrases
+            
+            # Add significant noun phrases
+            for phrase in noun_phrases:
+                if len(phrase) > 3:  # Filter short phrases
+                    keywords.append(phrase.lower())
+            
+        except Exception as e:
+            pass
+    
+    # Enhanced keyword extraction using regex and filtering
+    # Extract words of 4+ characters
+    words = re.findall(r'\b\w{4,}\b', text.lower())
+    
+    # Comprehensive stop words (German + English)
+    stop_words = {
+        # German
+        'dass', 'eine', 'eines', 'einer', 'haben', 'wird', 'sind', 'kann', 'auch', 
+        'aber', 'oder', 'und', 'der', 'die', 'das', 'den', 'dem', 'des', 'sich', 
+        'nicht', 'mit', 'für', 'auf', 'von', 'zu', 'im', 'ist', 'war', 'hat',
+        'wurde', 'werden', 'sein', 'ihre', 'seiner', 'diesem', 'diese', 'dieses',
+        'wenn', 'dann', 'weil', 'durch', 'nach', 'vor', 'über', 'unter', 'zwischen',
+        # English
+        'that', 'have', 'will', 'are', 'can', 'also', 'but', 'and', 'the', 'with',
+        'for', 'from', 'not', 'was', 'has', 'been', 'would', 'could', 'should',
+        'this', 'these', 'those', 'when', 'then', 'because', 'through', 'after',
+        'before', 'over', 'under', 'between'
+    }
+    
+    # Filter meaningful words
+    filtered_words = [w for w in words if w not in stop_words and len(w) > 3]
+    
+    # Combine with noun phrases
+    all_keywords = keywords + filtered_words
+    
+    # Count frequency and return top keywords
+    from collections import Counter
+    word_counts = Counter(all_keywords)
+    top_keywords = [word for word, count in word_counts.most_common(8)]
+    
+    return top_keywords
 
 def extract_concerns(text: str) -> List[str]:
     """Extract main concerns from text"""
@@ -1247,8 +1871,8 @@ def render_nav_bar():
             <div class="status-badge {'success' if OPENAI_AVAILABLE else 'error'}">
                 {'✅ AI Ready' if OPENAI_AVAILABLE else '⚠️ API Key Missing'}
             </div>
-            <div class="status-badge">
-                🎯 {st.session_state.interviews_completed}/{st.session_state.max_interviews} Interviews
+            <div class="status-badge {'success' if NLP_AVAILABLE else 'error'}">
+                {'✅ Advanced NLP models loaded successfully!' if NLP_AVAILABLE else '⚠️ Basic NLP only'}
             </div>
         </div>
     </div>
@@ -1422,109 +2046,8 @@ def render_step0_define_demographics():
     st.markdown("Define your target user demographics and segment. AI will assemble a representative group of personas based on your specifications.")
     
     # Demographics Definition
-    # Option 1: Quick Demographic Templates
-    st.markdown("#### 🚀 Quick Demographic Templates")
-    st.markdown("Select from pre-defined demographic segments:")
-    
-    DEMOGRAPHIC_TEMPLATES = {
-        "🏠 Premium Homeowners": {
-            "age_range": "35-65",
-            "income_level": "High (€80k+)",
-            "location": "Urban/Suburban premium areas",
-            "lifestyle": "Quality-focused, design-conscious",
-            "tech_comfort": "Medium to High",
-            "renovation_experience": "Some to Extensive",
-            "key_motivations": ["Quality", "Status", "Long-term value", "Innovation"],
-            "segment_description": "Affluent homeowners who value premium quality and are willing to invest in high-end solutions. They appreciate craftsmanship, innovation, and products that reflect their status."
-        },
-        "👨‍👩‍👧‍👦 Growing Families": {
-            "age_range": "28-45",
-            "income_level": "Medium to High (€50k-100k)",
-            "location": "Suburban family neighborhoods",
-            "lifestyle": "Family-focused, practical, busy",
-            "tech_comfort": "Medium",
-            "renovation_experience": "Limited to Some",
-            "key_motivations": ["Functionality", "Safety", "Durability", "Value for money"],
-            "segment_description": "Young to middle-aged families with children who prioritize practical solutions that make daily life easier. They need robust, safe products that can handle family use."
-        },
-        "🌱 Eco-Conscious Millennials": {
-            "age_range": "25-40",
-            "income_level": "Medium (€40k-80k)",
-            "location": "Urban areas, eco-friendly communities",
-            "lifestyle": "Sustainability-focused, tech-savvy",
-            "tech_comfort": "High",
-            "renovation_experience": "DIY-friendly, research-heavy",
-            "key_motivations": ["Sustainability", "Innovation", "Cost savings", "Environmental impact"],
-            "segment_description": "Environmentally conscious millennials who research extensively and prefer sustainable, innovative solutions. They're willing to invest in eco-friendly technology."
-        },
-        "🏢 Commercial Decision Makers": {
-            "age_range": "35-55",
-            "income_level": "Business/Corporate",
-            "location": "Commercial properties, hotels, offices",
-            "lifestyle": "Professional, efficiency-focused",
-            "tech_comfort": "Medium to High",
-            "renovation_experience": "Extensive (professional)",
-            "key_motivations": ["ROI", "Reliability", "Maintenance costs", "Guest satisfaction"],
-            "segment_description": "Professional decision makers in hospitality, real estate, or facilities management who focus on operational efficiency, cost-effectiveness, and customer satisfaction."
-        },
-        "👴 Active Seniors": {
-            "age_range": "55-75",
-            "income_level": "Medium to High (established wealth)",
-            "location": "Established neighborhoods, retirement communities",
-            "lifestyle": "Comfort-focused, accessibility-aware",
-            "tech_comfort": "Low to Medium",
-            "renovation_experience": "Extensive life experience",
-            "key_motivations": ["Comfort", "Accessibility", "Reliability", "Ease of use"],
-            "segment_description": "Active seniors who are planning for aging in place. They value comfort, accessibility, and reliable products that are easy to use and maintain."
-        }
-    }
-    
-    # Display demographic templates in compact table
-    # Prepare data for table display
-    table_data = []
-    for demo_name, demo_data in DEMOGRAPHIC_TEMPLATES.items():
-        table_data.append({
-            "Segment": demo_name,
-            "Age": demo_data['age_range'],
-            "Income": demo_data['income_level'],
-            "Key Motivations": ", ".join(demo_data['key_motivations'][:2]),
-            "Description": demo_data['segment_description'][:80] + "..." if len(demo_data['segment_description']) > 80 else demo_data['segment_description']
-        })
-    
-    df = pd.DataFrame(table_data)
-    
-    # Display table with selection
-    st.dataframe(
-        df,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Segment": st.column_config.TextColumn("Segment", width="medium"),
-            "Age": st.column_config.TextColumn("Age", width="small"),
-            "Income": st.column_config.TextColumn("Income", width="medium"),
-            "Key Motivations": st.column_config.TextColumn("Key Motivations", width="medium"),
-            "Description": st.column_config.TextColumn("Description", width="large")
-        }
-    )
-    
-    # Selection buttons in a compact row
-    st.markdown("**Select a demographic template:**")
-    cols = st.columns(len(DEMOGRAPHIC_TEMPLATES))
-    
-    for i, (demo_name, demo_data) in enumerate(DEMOGRAPHIC_TEMPLATES.items()):
-        with cols[i]:
-            # Extract emoji and short name for button
-            button_label = demo_name.split()[0] + " " + demo_name.split()[1] if len(demo_name.split()) > 1 else demo_name
-            if st.button(button_label, key=f"demo_select_{i}", use_container_width=True):
-                st.session_state.target_demographics = demo_data.copy()
-                st.session_state.target_demographics['segment_name'] = demo_name
-                st.success(f"✅ {demo_name} demographics selected!")
-                # Auto-generate personas for this demographic
-                generate_personas_for_demographic(demo_data, demo_name)
-                st.rerun()
-    
-    # Option 2: Custom Demographics
-    st.markdown("#### ✏️ Or Define Custom Demographics")
+    # Option 1: Custom Demographics
+    st.markdown("#### ✏️ Define Custom Demographics")
     
     with st.expander("🎨 Create Custom Demographics", expanded=False):
         with st.form("custom_demographics_form"):
@@ -1544,8 +2067,6 @@ def render_step0_define_demographics():
                 lifestyle = st.text_area("Lifestyle & Characteristics", 
                                        placeholder="Describe their lifestyle, values, and characteristics...")
                 tech_comfort = st.selectbox("Technology Comfort", ["Low", "Medium", "High", "Varied"])
-                renovation_experience = st.selectbox("Renovation Experience", 
-                                                   ["None", "Limited", "Some", "Extensive", "Professional", "Varied"])
             
             motivations = st.text_area("Key Motivations (one per line)", 
                                      placeholder="Quality\nInnovation\nValue for money\nConvenience")
@@ -1566,7 +2087,6 @@ def render_step0_define_demographics():
                         'location': location,
                         'lifestyle': lifestyle,
                         'tech_comfort': tech_comfort,
-                        'renovation_experience': renovation_experience,
                         'key_motivations': motivations_list,
                         'segment_description': segment_description,
                         'persona_count': persona_count
@@ -1579,6 +2099,180 @@ def render_step0_define_demographics():
                     st.rerun()
                 else:
                     st.error("Please fill in all required fields marked with *")
+    
+    # Option 2: Built-in Segment Browser
+    st.markdown("#### 🎯 Browse Built-in Segments")
+    st.markdown("Select from professionally researched segmentation frameworks:")
+    
+    # Quick overview of available segments
+    with st.expander("📊 Quick Overview of Available Segments", expanded=False):
+        for framework_name, framework_info in BUILT_IN_SEGMENTS.items():
+            st.markdown(f"**{framework_name}** ({len(framework_info['segments'])} segments)")
+            st.caption(framework_info['description'])
+            
+            # Show segment names in a compact format
+            segments_list = list(framework_info['segments'].keys())
+            if len(segments_list) > 6:
+                displayed_segments = segments_list[:6] + [f"... and {len(segments_list) - 6} more"]
+            else:
+                displayed_segments = segments_list
+            
+            st.markdown(f"*{', '.join(displayed_segments)}*")
+            st.markdown("---")
+    
+    # Framework selection
+    framework_options = ["Select a framework..."] + list(BUILT_IN_SEGMENTS.keys())
+    selected_framework = st.selectbox(
+        "Choose a segmentation framework:",
+        framework_options,
+        key="selected_framework",
+        help="Each framework offers different perspectives on consumer segmentation"
+    )
+    
+    if selected_framework and selected_framework != "Select a framework...":
+        framework_data = BUILT_IN_SEGMENTS[selected_framework]
+        
+        # Show framework description
+        st.info(f"**{selected_framework}**: {framework_data['description']}")
+        
+        # Segment selection within framework
+        segment_options = ["Select a segment..."] + list(framework_data["segments"].keys())
+        selected_built_in_segment = st.selectbox(
+            f"Choose a segment from {selected_framework}:",
+            segment_options,
+            key="selected_built_in_segment"
+        )
+        
+        if selected_built_in_segment and selected_built_in_segment != "Select a segment...":
+            segment_data = framework_data["segments"][selected_built_in_segment]
+            
+            # Show segment preview with enhanced styling
+            with st.expander(f"📋 Preview: {selected_built_in_segment}", expanded=True):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write(f"**Age Range:** {segment_data.get('age_range', 'Not specified')}")
+                    st.write(f"**Income Level:** {segment_data.get('income_level', 'Not specified')}")
+                    st.write(f"**Location:** {segment_data.get('location', 'Not specified')}")
+                with col2:
+                    st.write(f"**Tech Comfort:** {segment_data.get('tech_comfort', 'Not specified')}")
+                    st.write(f"**Personas to Generate:** {segment_data.get('persona_count', 5)}")
+                    if segment_data.get('key_motivations'):
+                        st.write(f"**Key Motivations:** {', '.join(segment_data['key_motivations'])}")
+                
+                st.write("**Description:**")
+                st.write(segment_data.get('segment_description', 'No description provided'))
+                
+                if segment_data.get('lifestyle'):
+                    st.write("**Lifestyle & Characteristics:**")
+                    st.write(segment_data['lifestyle'])
+            
+            # Button to use this segment
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                if st.button(f"🎯 Use '{selected_built_in_segment}' Segment", 
+                           key=f"use_builtin_segment_{selected_built_in_segment}",
+                           type="primary"):
+                    st.session_state.target_demographics = segment_data.copy()
+                    st.session_state.assembled_personas = []  # Reset personas
+                    st.success(f"✅ Selected built-in segment: {selected_built_in_segment}")
+                    
+                    # Auto-generate personas for this segment
+                    generate_personas_for_demographic(segment_data, selected_built_in_segment)
+                    st.rerun()
+            
+            with col2:
+                # Add framework badge
+                framework_short = selected_framework.split()[0]  # Get first word
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                           color: white; padding: 8px 12px; border-radius: 20px; 
+                           text-align: center; font-size: 12px; font-weight: bold;">
+                    {framework_short}
+                </div>
+                """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Option 3: Bulk Data Import
+    st.markdown("#### 📊 Custom Data Import")
+    st.markdown("Upload your own custom demographic segments:")
+    
+    # Initialize session state for predefined segments
+    if 'predefined_segments' not in st.session_state:
+        st.session_state.predefined_segments = {}
+    
+    # File upload section
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        uploaded_file = st.file_uploader(
+            "Upload Predefined Segments (CSV or Excel)",
+            type=['csv', 'xlsx', 'xls'],
+            help="Upload a file with predefined demographic segments. Download the template below to see the required format."
+        )
+        
+        if uploaded_file is not None:
+            with st.spinner("Loading predefined segments..."):
+                loaded_segments = load_predefined_segments_from_file(uploaded_file)
+                if loaded_segments:
+                    st.session_state.predefined_segments.update(loaded_segments)
+                    st.success(f"✅ Loaded {len(loaded_segments)} predefined segments!")
+    
+    with col2:
+        # Download template
+        template_df = create_segment_template_download()
+        csv_template = template_df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Template",
+            data=csv_template,
+            file_name="predefined_segments_template.csv",
+            mime="text/csv",
+            help="Download a CSV template with example segments"
+        )
+    
+    # Display loaded segments
+    if st.session_state.predefined_segments:
+        st.markdown("**Available Predefined Segments:**")
+        
+        # Create selectbox for segments
+        segment_options = ["Select a segment..."] + list(st.session_state.predefined_segments.keys())
+        selected_segment = st.selectbox(
+            "Choose a predefined segment:",
+            segment_options,
+            key="selected_predefined_segment"
+        )
+        
+        if selected_segment and selected_segment != "Select a segment...":
+            segment_data = st.session_state.predefined_segments[selected_segment]
+            
+            # Show segment preview
+            with st.expander(f"📋 Preview: {selected_segment}", expanded=True):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write(f"**Age Range:** {segment_data.get('age_range', 'Not specified')}")
+                    st.write(f"**Income Level:** {segment_data.get('income_level', 'Not specified')}")
+                    st.write(f"**Location:** {segment_data.get('location', 'Not specified')}")
+                with col2:
+                    st.write(f"**Tech Comfort:** {segment_data.get('tech_comfort', 'Not specified')}")
+                    st.write(f"**Lifestyle:** {segment_data.get('lifestyle', 'Not specified')}")
+                    if segment_data.get('key_motivations'):
+                        st.write(f"**Key Motivations:** {', '.join(segment_data['key_motivations'])}")
+                
+                st.write("**Description:**")
+                st.write(segment_data.get('segment_description', 'No description provided'))
+            
+            # Button to use this segment
+            if st.button(f"🎯 Use '{selected_segment}' Segment", key=f"use_segment_{selected_segment}"):
+                st.session_state.target_demographics = segment_data.copy()
+                st.session_state.assembled_personas = []  # Reset personas
+                st.success(f"✅ Selected predefined segment: {selected_segment}")
+                
+                # Auto-generate personas for this segment
+                generate_personas_for_demographic(segment_data, selected_segment)
+                st.rerun()
+    
+    else:
+        st.info("📋 No predefined segments loaded. Upload a CSV or Excel file to get started, or download the template above.")
     
     # Show current demographics and assembled personas
     if st.session_state.target_demographics:
@@ -1595,7 +2289,6 @@ def render_step0_define_demographics():
             st.write(f"**Tech Comfort:** {demographics.get('tech_comfort', 'Not specified')}")
         with col2:
             st.write(f"**Lifestyle:** {demographics.get('lifestyle', 'Not specified')}")
-            st.write(f"**Experience:** {demographics.get('renovation_experience', 'Not specified')}")
             if demographics.get('key_motivations'):
                 st.write(f"**Key Motivations:** {', '.join(demographics['key_motivations'])}")
         
@@ -1654,10 +2347,8 @@ def render_step0_define_demographics():
 def generate_personas_for_demographic(demographics: Dict, segment_name: str):
     """Generate representative personas based on demographic data using AI"""
     if not OPENAI_AVAILABLE:
-        st.error("OpenAI API not available. Using fallback personas.")
-        # Use fallback personas from existing examples
-        fallback_personas = list(EXAMPLE_PERSONAS.values())[:demographics.get('persona_count', 5)]
-        st.session_state.assembled_personas = fallback_personas
+        st.error("OpenAI API not available. Cannot generate personas without API access.")
+        st.session_state.assembled_personas = []
         return
     
     try:
@@ -1669,7 +2360,7 @@ def generate_personas_for_demographic(demographics: Dict, segment_name: str):
             
             for i in range(persona_count):
                 response = client.chat.completions.create(
-                    model="gpt-4",
+                    model="gpt-4o",  # Use improved model
                     messages=[
                         {"role": "system", "content": f"""You are a persona generator for user research. Create realistic, diverse personas that represent the target demographic segment.
 
@@ -1679,7 +2370,6 @@ TARGET DEMOGRAPHIC SEGMENT: {segment_name}
 - Location: {demographics.get('location', 'Not specified')}
 - Lifestyle: {demographics.get('lifestyle', 'Not specified')}
 - Tech Comfort: {demographics.get('tech_comfort', 'Not specified')}
-- Renovation Experience: {demographics.get('renovation_experience', 'Not specified')}
 - Key Motivations: {', '.join(demographics.get('key_motivations', []))}
 - Segment Description: {demographics.get('segment_description', 'Not specified')}
 
@@ -1721,20 +2411,15 @@ Make each persona unique while staying within the demographic parameters. Focus 
                         persona['experience'] = '; '.join(persona['experience'])
                     personas.append(persona)
                 except json.JSONDecodeError as e:
-                    st.warning(f"Failed to parse persona {i+1}, using fallback")
-                    # Use a fallback persona from examples
-                    if EXAMPLE_PERSONAS:
-                        fallback_persona = list(EXAMPLE_PERSONAS.values())[i % len(EXAMPLE_PERSONAS)]
-                        personas.append(fallback_persona)
+                    st.warning(f"Failed to parse persona {i+1}, skipping")
+                    # Skip invalid personas instead of using fallback
             
             st.session_state.assembled_personas = personas
             st.success(f"✅ Successfully generated {len(personas)} personas for {segment_name}!")
             
     except Exception as e:
         st.error(f"Error generating personas: {str(e)}")
-        # Fallback to example personas
-        fallback_personas = list(EXAMPLE_PERSONAS.values())[:demographics.get('persona_count', 5)]
-        st.session_state.assembled_personas = fallback_personas
+        st.session_state.assembled_personas = []
 
 def render_step1_define_product():
     """Step 2: Define Product for Autonomous Research"""
@@ -1897,6 +2582,92 @@ def render_step2_generate_interviews():
     product = st.session_state.current_product
     st.info(f"🚀 **Testing Product:** {product.get('name', 'Unnamed Product')}")
     
+    # Interview Context Configuration
+    st.markdown("### 🎯 Interview Context & Scenario")
+    st.markdown("Define the interview scenario to ensure realistic and relevant conversations.")
+    
+    with st.expander("📋 Interview Context Settings", expanded=True):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**Customer Relationship**")
+            customer_status = st.selectbox(
+                "Customer Status",
+                [
+                    "Potential new customer (never used product)",
+                    "Interested prospect (aware of product)",
+                    "Existing customer (current user)",
+                    "Former customer (used to use product)",
+                    "Competitor customer (uses similar products)"
+                ],
+                help="What is the persona's relationship to your product?"
+            )
+            
+            product_knowledge = st.selectbox(
+                "Product Knowledge Level",
+                [
+                    "No prior knowledge",
+                    "Basic awareness",
+                    "Good understanding",
+                    "Expert level knowledge"
+                ],
+                help="How familiar is the persona with your product category?"
+            )
+            
+            purchase_intent = st.selectbox(
+                "Purchase Intent",
+                [
+                    "Just browsing/researching",
+                    "Considering purchase soon",
+                    "Ready to buy",
+                    "Needs convincing",
+                    "Comparing options"
+                ],
+                help="What is the persona's buying intention?"
+            )
+        
+        with col2:
+            st.markdown("**Interview Scenario**")
+            interview_setting = st.selectbox(
+                "Interview Setting",
+                [
+                    "Product discovery interview",
+                    "User experience feedback session",
+                    "Purchase decision consultation",
+                    "Post-purchase satisfaction review",
+                    "Competitive analysis discussion"
+                ],
+                help="What type of interview scenario should this be?"
+            )
+            
+            conversation_style = st.selectbox(
+                "Conversation Style",
+                [
+                    "Casual and exploratory",
+                    "Structured and focused",
+                    "Problem-solving oriented",
+                    "Consultative and advisory"
+                ],
+                help="What tone should the interview have?"
+            )
+            
+            specific_context = st.text_area(
+                "Specific Context (Optional)",
+                placeholder="e.g., 'Persona is renovating their bathroom and looking for modern solutions' or 'Recently moved and setting up new home'",
+                help="Add any specific context about the persona's current situation"
+            )
+    
+    # Store interview context in session state
+    interview_context = {
+        "customer_status": customer_status,
+        "product_knowledge": product_knowledge,
+        "purchase_intent": purchase_intent,
+        "interview_setting": interview_setting,
+        "conversation_style": conversation_style,
+        "specific_context": specific_context
+    }
+    st.session_state.interview_context = interview_context
+    
     # Interview Configuration
     st.markdown("### ⚙️ Interview Configuration")
     
@@ -1953,11 +2724,11 @@ def render_step2_generate_interviews():
         
         with col1:
             if st.button("🚀 Generate Single Interview", use_container_width=True):
-                generate_single_interview(product, questions_per_interview, interview_focus)
+                generate_single_interview(product, questions_per_interview, interview_focus, st.session_state.get('interview_context'))
         
         with col2:
             if st.button("🤖 Generate All Interviews", use_container_width=True, type="primary"):
-                generate_all_interviews(product, num_interviews, questions_per_interview, interview_focus)
+                generate_all_interviews(product, num_interviews, questions_per_interview, interview_focus, st.session_state.get('interview_context'))
     else:
         if st.session_state.research_active:
             st.warning("🔄 Research is currently running...")
@@ -2013,7 +2784,7 @@ def render_step2_generate_interviews():
         else:
             st.button("➡️ Generate interviews first", disabled=True, use_container_width=True)
 
-def generate_single_interview(product: Dict, num_questions: int, focus: str):
+def generate_single_interview(product: Dict, num_questions: int, focus: str, interview_context: Dict = None):
     """Generate and run a single autonomous interview"""
     if not OPENAI_AVAILABLE:
         st.error("OpenAI API not available. Please check your API key configuration.")
@@ -2042,8 +2813,8 @@ def generate_single_interview(product: Dict, num_questions: int, focus: str):
             st.info(f"👤 Created persona: {persona.get('name', 'Unknown')}")
             st.info("❓ Generating interview questions...")
         
-        # Generate questions
-        questions = generate_interview_questions(persona, product, num_questions)
+        # Generate questions with context
+        questions = generate_interview_questions(persona, product, num_questions, interview_context)
         
         with status_placeholder.container():
             st.info(f"💬 Conducting interview with {len(questions)} questions...")
@@ -2075,7 +2846,7 @@ def generate_single_interview(product: Dict, num_questions: int, focus: str):
         status_placeholder.empty()
         st.rerun()
 
-def generate_all_interviews(product: Dict, num_interviews: int, questions_per_interview: int, focus: str):
+def generate_all_interviews(product: Dict, num_interviews: int, questions_per_interview: int, focus: str, interview_context: Dict = None):
     """Generate all remaining interviews"""
     if not OPENAI_AVAILABLE:
         st.error("OpenAI API not available. Please check your API key configuration.")
@@ -2114,8 +2885,8 @@ def generate_all_interviews(product: Dict, num_interviews: int, questions_per_in
             with status_text.container():
                 st.info(f"👤 Interview {current_count + i + 1}: {persona.get('name', 'Unknown')}")
             
-            # Generate questions
-            questions = generate_interview_questions(persona, product, questions_per_interview)
+            # Generate questions with context
+            questions = generate_interview_questions(persona, product, questions_per_interview, interview_context)
             
             # Conduct interview
             interview_data = conduct_autonomous_interview(persona, product, questions)
@@ -2198,7 +2969,7 @@ def render_step3_analyze_results():
     st.markdown("### 📈 Detailed Analytics")
     
     # Create tabs for different analysis views
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "👥 Personas", "💬 Conversations", "📄 Export"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Overview", "👥 Personas", "💬 Conversations", "🗨️ Live Chat", "📄 Export"])
     
     with tab1:
         render_overview_analysis(completed_interviews)
@@ -2210,6 +2981,9 @@ def render_step3_analyze_results():
         render_conversation_analysis(completed_interviews)
     
     with tab4:
+        render_live_chat(completed_interviews, product)
+    
+    with tab5:
         render_export_analysis(completed_interviews, product)
     
     # Navigation
@@ -2239,10 +3013,10 @@ def render_step3_analyze_results():
 
 # Analysis Helper Functions
 def render_overview_analysis(completed_interviews):
-    """Render overview analysis tab"""
+    """Render enhanced overview analysis tab with NLU insights"""
     st.markdown("#### 🎯 Key Insights")
     
-    # Calculate insights
+    # Calculate basic insights
     sentiments = [i['metrics']['sentiment_score'] for i in completed_interviews]
     convictions = [i['metrics']['conviction_level'] for i in completed_interviews]
     
@@ -2254,7 +3028,28 @@ def render_overview_analysis(completed_interviews):
     neutral_count = len([s for s in sentiments if 0.4 <= s <= 0.6])
     negative_count = len([s for s in sentiments if s < 0.4])
     
-    # Display insights
+    # Collect emotions and keywords from all interviews
+    all_emotions = {}
+    all_keywords = []
+    dominant_emotions = []
+    
+    for interview in completed_interviews:
+        metrics = interview['metrics']
+        
+        # Aggregate emotions
+        if 'emotions' in metrics and metrics['emotions']:
+            for emotion, score in metrics['emotions'].items():
+                all_emotions[emotion] = all_emotions.get(emotion, 0) + score
+        
+        # Collect keywords
+        if 'keywords' in metrics and metrics['keywords']:
+            all_keywords.extend(metrics['keywords'])
+        
+        # Collect dominant emotions
+        if 'dominant_emotion' in metrics:
+            dominant_emotions.append(metrics['dominant_emotion'])
+    
+    # Display basic insights
     insights = []
     if avg_sentiment > 0.7:
         insights.append("✅ **Very Positive Reception** - Strong overall sentiment across interviews")
@@ -2271,10 +3066,20 @@ def render_overview_analysis(completed_interviews):
     if positive_count > len(completed_interviews) * 0.7:
         insights.append("🌟 **Broad Appeal** - Product resonates with diverse audience")
     
+    # Add emotion-based insights
+    if all_emotions:
+        top_emotion = max(all_emotions.keys(), key=lambda k: all_emotions[k])
+        emotion_icons = {
+            'joy': '😊', 'trust': '🤝', 'fear': '😰', 'surprise': '😮', 
+            'anger': '😠', 'sadness': '😢', 'anticipation': '🎯', 'disgust': '😒'
+        }
+        icon = emotion_icons.get(top_emotion, '💭')
+        insights.append(f"{icon} **Dominant Emotion: {top_emotion.title()}** - This emotion appears most frequently in responses")
+    
     for insight in insights:
         st.markdown(f"- {insight}")
     
-    # Charts
+    # Enhanced visualizations
     col1, col2 = st.columns(2)
     
     with col1:
@@ -2283,25 +3088,51 @@ def render_overview_analysis(completed_interviews):
             'Sentiment': ['Positive', 'Neutral', 'Negative'],
             'Count': [positive_count, neutral_count, negative_count]
         })
-        fig = px.pie(sentiment_data, values='Count', names='Sentiment', 
-                    color_discrete_map={'Positive': '#10b981', 'Neutral': '#6b7280', 'Negative': '#ef4444'})
-        st.plotly_chart(fig, use_container_width=True)
+        
+        if not sentiment_data.empty:
+            fig = px.pie(sentiment_data, values='Count', names='Sentiment', 
+                        color_discrete_map={'Positive': '#22c55e', 'Neutral': '#64748b', 'Negative': '#ef4444'})
+            fig.update_traces(textposition='inside', textinfo='percent+label')
+            fig.update_layout(height=300, margin=dict(t=20, b=20, l=20, r=20))
+            st.plotly_chart(fig, use_container_width=True)
     
     with col2:
-        st.markdown("#### 📊 Interview Metrics")
-        metrics_data = pd.DataFrame({
-            'Interview': [f"Interview {i+1}" for i in range(len(completed_interviews))],
-            'Sentiment': sentiments,
-            'Conviction': convictions
-        })
-        fig = px.scatter(metrics_data, x='Sentiment', y='Conviction', hover_name='Interview',
-                        title="Sentiment vs Purchase Intent")
-        fig.add_hline(y=0.5, line_dash="dash", line_color="gray", annotation_text="Medium Conviction")
-        fig.add_vline(x=0.5, line_dash="dash", line_color="gray", annotation_text="Neutral Sentiment")
-        st.plotly_chart(fig, use_container_width=True)
+        if all_emotions:
+            st.markdown("#### 💭 Emotion Analysis")
+            emotion_df = pd.DataFrame(list(all_emotions.items()), columns=['Emotion', 'Score'])
+            emotion_df = emotion_df.sort_values('Score', ascending=True)
+            
+            fig = px.bar(emotion_df, x='Score', y='Emotion', orientation='h',
+                        title="Emotional Response Distribution")
+            fig.update_layout(height=300, margin=dict(t=40, b=20, l=20, r=20))
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.markdown("#### 💭 Emotion Analysis")
+            st.info("No emotion data available with current analysis")
+    
+    # Keywords section
+    if all_keywords:
+        st.markdown("#### 🔑 Key Topics & Terms")
+        from collections import Counter
+        keyword_counts = Counter(all_keywords)
+        top_keywords = keyword_counts.most_common(10)
+        
+        # Create keyword frequency chart
+        if top_keywords:
+            keyword_df = pd.DataFrame(top_keywords, columns=['Keyword', 'Frequency'])
+            fig = px.bar(keyword_df, x='Frequency', y='Keyword', orientation='h',
+                        title="Most Mentioned Keywords")
+            fig.update_layout(height=400, margin=dict(t=40, b=20, l=20, r=20))
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Display as tags
+        st.markdown("**Top Keywords:**")
+        keyword_tags = " ".join([f"`{word} ({count})`" for word, count in top_keywords[:8]])
+        st.markdown(keyword_tags)
+    
 
 def render_persona_analysis(completed_interviews):
-    """Render persona analysis tab"""
+    """Render enhanced persona analysis tab with NLU insights"""
     st.markdown("#### 👥 Persona Breakdown")
     
     # Group by job/persona type
@@ -2376,15 +3207,116 @@ def render_conversation_analysis(completed_interviews):
         st.write(f"**Conviction:** {metrics['conviction_level']:.1%}")
         st.write(f"**Concerns:** {len(metrics['main_concerns'])}")
     
-    # Display conversation
+    # Display conversation with streamlit-chat
     st.markdown("##### 💬 Full Conversation")
     
     conversation = selected_interview['conversation']
-    for i, message in enumerate(conversation):
-        if message['role'] == 'user':
-            st.chat_message("user").write(f"**Researcher:** {message['content']}")
+    for i, msg in enumerate(conversation):
+        if msg['role'] == 'user':
+            message(f"**Researcher:** {msg['content']}", is_user=True, key=f"user_{i}")
         else:
-            st.chat_message("assistant").write(f"**{persona['name']}:** {message['content']}")
+            avatar_url = get_persona_avatar_url(persona['name'], persona)
+            message(f"**{persona['name']}:** {msg['content']}", is_user=False, key=f"assistant_{i}", avatar_style="no-avatar", logo=avatar_url)
+
+def render_live_chat(completed_interviews, product):
+    """Render interactive live chat with personas"""
+    st.markdown("#### 🗨️ Live Chat with Personas")
+    st.markdown("Have a real-time conversation with any of your generated personas to explore deeper insights.")
+    
+    if not completed_interviews:
+        st.info("Complete some interviews first to enable live chat with personas.")
+        return
+    
+    # Persona selection
+    personas = [interview['persona'] for interview in completed_interviews]
+    persona_names = [p['name'] for p in personas]
+    
+    selected_persona_name = st.selectbox("Choose a persona to chat with:", persona_names)
+    selected_persona = next(p for p in personas if p['name'] == selected_persona_name)
+    
+    st.markdown(f"**Chatting with:** {selected_persona['name']}")
+    st.markdown(f"*{selected_persona.get('background', 'AI-generated persona')}*")
+    
+    # Initialize chat history in session state
+    chat_key = f"live_chat_{selected_persona['name']}"
+    if chat_key not in st.session_state:
+        st.session_state[chat_key] = []
+    
+    # Display chat history
+    chat_container = st.container()
+    with chat_container:
+        for i, msg in enumerate(st.session_state[chat_key]):
+            timestamp = msg.get('timestamp', '')
+            if msg['role'] == 'user':
+                display_text = f"**You:** {msg['content']}"
+                if timestamp:
+                    display_text += f"\n*{timestamp}*"
+                message(display_text, is_user=True, key=f"live_user_{i}_{chat_key}")
+            else:
+                display_text = f"**{selected_persona['name']}:** {msg['content']}"
+                if timestamp:
+                    display_text += f"\n*{timestamp}*"
+                avatar_url = get_persona_avatar_url(selected_persona['name'], selected_persona)
+                message(display_text, is_user=False, key=f"live_assistant_{i}_{chat_key}", 
+                       avatar_style="no-avatar", logo=avatar_url)
+    
+    # Chat input
+    user_input = st.chat_input("Type your message here...")
+    
+    if user_input:
+        # Add user message to chat history with timestamp
+        current_time = datetime.now().strftime('%H:%M')
+        st.session_state[chat_key].append({
+            'role': 'user', 
+            'content': user_input,
+            'timestamp': current_time
+        })
+        
+        # Generate AI response
+        try:
+            response = get_openai_response(user_input, selected_persona, product)
+            st.session_state[chat_key].append({
+                'role': 'assistant', 
+                'content': response,
+                'timestamp': datetime.now().strftime('%H:%M')
+            })
+        except Exception as e:
+            st.error(f"Error generating response: {str(e)}")
+            st.session_state[chat_key].append({
+                'role': 'assistant', 
+                'content': "I'm sorry, I'm having trouble responding right now. Please try again.",
+                'timestamp': datetime.now().strftime('%H:%M')
+            })
+        
+        # Rerun to update the chat display
+        st.rerun()
+    
+    # Chat controls
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if st.button("🗑️ Clear Chat", use_container_width=True):
+            st.session_state[chat_key] = []
+            st.rerun()
+    
+    with col2:
+        if st.button("💾 Save Chat", use_container_width=True):
+            if st.session_state[chat_key]:
+                # Create a downloadable chat log
+                chat_log = {
+                    'persona': selected_persona,
+                    'product': product,
+                    'conversation': st.session_state[chat_key],
+                    'timestamp': datetime.now().isoformat()
+                }
+                
+                chat_json = json.dumps(chat_log, indent=2)
+                st.download_button(
+                    label="📥 Download Chat Log",
+                    data=chat_json,
+                    file_name=f"chat_log_{selected_persona['name']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                    mime="application/json",
+                    use_container_width=True
+                )
 
 def render_export_analysis(completed_interviews, product):
     """Render export analysis tab"""
