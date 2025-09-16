@@ -125,3 +125,4 @@ The built-in segment browser provides a foundation for:
 6. Start your user research with professional-grade segments!
 
 The built-in segment browser transforms your user research workflow by providing immediate access to professionally researched consumer segments, eliminating setup time and ensuring high-quality, validated demographic targeting.
+

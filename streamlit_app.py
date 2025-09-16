@@ -1225,6 +1225,19 @@ def initialize_session_state():
             'specific_context': ''
         },
         
+        # Custom form data persistence
+        'custom_form_data': {
+            'segment_name': '',
+            'age_range': '',
+            'income_level': 'Medium (€30k-60k)',
+            'location': '',
+            'lifestyle': '',
+            'tech_comfort': 'Medium',
+            'motivations': '',
+            'segment_description': '',
+            'persona_count': 5
+        },
+        
         # Legacy (for backward compatibility during transition)
         'demo_mode': False,
         'voice_mode': False
@@ -1262,11 +1275,9 @@ def generate_diverse_persona() -> Dict:
     try:
         client = openai.OpenAI(api_key=OPENAI_API_KEY)
         
-        # Pre-select a diverse name to ensure variety
-        gender = random.choice(['male', 'female'])
-        first_name = random.choice(german_names[f'{gender}_first'])
-        surname = random.choice(german_names['surnames'])
-        full_name = f"{first_name} {surname}"
+        # Use the enhanced name generation system
+        unique_names = generate_unique_german_names(1)
+        full_name, gender = unique_names[0] if unique_names else ("Sample Person", "neutral")
         
         response = client.chat.completions.create(
             model="gpt-4o",  # Use latest model for better quality
@@ -1538,7 +1549,10 @@ def get_openai_response(message: str, persona: Dict, product: Dict) -> str:
         return f"Entschuldigung, es gab einen Fehler bei der Verbindung zur API: {str(e)}"
 
 def create_persona_prompt(persona: Dict, product: Dict) -> str:
-    """Create detailed persona prompt following best practices"""
+    """Create detailed persona prompt following best practices - enhanced for comprehensive personas"""
+    
+    # Check if this is a comprehensive persona
+    has_comprehensive = "_comprehensive" in persona and persona["_comprehensive"]
     
     # Special handling for couple persona
     if "Sandra & Marco" in persona.get('name', ''):
@@ -1594,7 +1608,112 @@ Sie befinden sich in einem User Research Interview. Reagieren Sie natürlich auf
 # SAFETY & ESCALATION
 Bleiben Sie immer in der Rolle des Ehepaars. Falls technische Details zu komplex werden, fragen Sie nach einfacheren Erklärungen.
 """
+    elif has_comprehensive:
+        # Enhanced prompt using comprehensive persona data
+        comp = persona["_comprehensive"]
+        basic_info = comp.get("basic_information", {})
+        demographics = comp.get("demographics", {})
+        psychographics = comp.get("psychographics", {})
+        behavioral = comp.get("behavioral_patterns", {})
+        goals = comp.get("goals_jobs_to_be_done", {})
+        pains = comp.get("pain_points_frustrations", {})
+        digital = comp.get("digital_ecosystem", {})
+        influences = comp.get("influences_decision_factors", {})
+        quotes = comp.get("quotes", [])
+        
+        # Build personality description
+        personality_traits = psychographics.get("personality_traits", [])
+        values = psychographics.get("values", [])
+        attitudes = psychographics.get("attitudes", "")
+        
+        personality_desc = f"{attitudes}. "
+        if personality_traits:
+            personality_desc += f"Key traits: {', '.join(personality_traits)}. "
+        if values:
+            personality_desc += f"Core values: {', '.join(values)}."
+        
+        # Build context sections
+        situation_context = f"""
+- Alter: {basic_info.get('age', persona.get('age', 30))} Jahre
+- Position: {demographics.get('occupation', persona.get('job', 'Fachkraft'))}
+- Unternehmen: {demographics.get('industry', persona.get('company', 'Ein Unternehmen'))}
+- Wohnsituation: {demographics.get('living_situation', 'Standard')}
+- Haushalt: {demographics.get('household', 'Standard')}
+- Einkommen: {demographics.get('income_range', 'Durchschnitt')}
+- Technische Kompetenz: {digital.get('technical_proficiency', 'Mittel')}"""
+
+        challenges = "; ".join(pains.get("major_challenges", [persona.get('pain_points', 'Standard challenges')]))
+        primary_goals = "; ".join(goals.get("primary_goals", [persona.get('goals', 'Standard goals')]))
+        
+        # Add behavioral context
+        behavioral_context = ""
+        if behavioral.get("purchasing_habits"):
+            behavioral_context += f"\n- Kaufverhalten: {behavioral.get('purchasing_habits')}"
+        if behavioral.get("decision_making_style"):
+            behavioral_context += f"\n- Entscheidungsstil: {behavioral.get('decision_making_style')}"
+        if digital.get("key_apps_tools"):
+            behavioral_context += f"\n- Wichtige Tools: {', '.join(digital.get('key_apps_tools', []))}"
+        
+        # Add quotes for authenticity
+        quote_examples = ""
+        if quotes:
+            quote_examples = f"""
+# AUTHENTIC VOICE
+Typical things you might say:
+{chr(10).join([f'- "{quote}"' for quote in quotes[:3]])}
+"""
+
+        return f"""
+# ROLE & OBJECTIVE
+Sie sind {basic_info.get('name', persona.get('name', 'eine Person'))} und arbeiten als {demographics.get('occupation', persona.get('job', 'Fachkraft'))}. {basic_info.get('one_line_summary', '')} Ihr Ziel ist es, als potenzielle/r Kunde/in authentisch auf Produktvorstellungen zu reagieren und realistische Fragen aus Ihrer beruflichen und persönlichen Perspektive zu stellen.
+
+# PERSONALITY & TONE
+{personality_desc}
+
+# CONTEXT
+## Ihre Situation:{situation_context}{behavioral_context}
+
+## Aktuelle Herausforderungen:
+{challenges}
+
+## Ihre Ziele:
+{primary_goals}
+
+## Typische Tagesroutine:
+{behavioral.get('daily_routines', 'Standard professional routine')}
+{quote_examples}
+# REFERENCE PRONUNCIATIONS
+- zero360: "ZERO-three-six-zero" (englisch)
+
+# CONTEXT: PRODUKT IM GESPRÄCH
+{product.get('description', 'Ein zero360 Produkt')}
+
+Value Proposition: {product.get('value_prop', 'Nutzen für den Anwender')}
+
+# INSTRUCTIONS / RULES
+## DO:
+- Reagieren Sie authentisch aus Ihrer spezifischen Perspektive als {demographics.get('occupation', 'Professional')}
+- Stellen Sie kritische Fragen basierend auf Ihren Pain Points: {challenges}
+- Erwähnen Sie konkrete Beispiele aus Ihrem Arbeits-/Lebensalltag
+- Berücksichtigen Sie Ihr Kaufverhalten: {behavioral.get('purchasing_habits', 'thoughtful purchasing')}
+- Zeigen Sie sowohl Interesse als auch berechtigte Skepsis entsprechend Ihrer Persönlichkeit
+- Berücksichtigen Sie Ihre Lebenssituation: {demographics.get('household', 'standard situation')}
+- Antworten Sie auf Deutsch in 1-3 prägnanten Sätzen
+
+## DON'T:
+- Seien Sie nicht unrealistisch begeistert
+- Ignorieren Sie nicht Ihre spezifischen Bedürfnisse und Einschränkungen
+- Vergessen Sie nicht Ihre berufliche Expertise in {demographics.get('industry', 'your field')}
+- Seien Sie nicht unhöflich, aber durchaus kritisch entsprechend Ihrer Werte: {', '.join(values) if values else 'balanced approach'}
+
+# CONVERSATION FLOW
+Sie befinden sich in einem User Research Interview. Reagieren Sie natürlich auf Produktvorstellungen mit einer Mischung aus professionellem Interesse und kritischen Nachfragen, die zu Ihrer Persönlichkeit und Ihren Erfahrungen passen.
+
+# SAFETY & ESCALATION
+Bleiben Sie immer in Ihrer Rolle als {basic_info.get('name', 'Persona')}. Falls Fragen außerhalb Ihres Expertisebereichs gestellt werden, verweisen Sie höflich auf Ihre spezifische Perspektive.
+"""
     else:
+        # Fallback to basic persona prompt
         return f"""
 # ROLE & OBJECTIVE
 Sie sind {persona.get('name', 'eine Person')} und arbeiten als {persona.get('job', 'Fachkraft')}. Ihr Ziel ist es, als potenzielle/r Kunde/in authentisch auf Produktvorstellungen zu reagieren und realistische Fragen aus Ihrer beruflichen und persönlichen Perspektive zu stellen.
@@ -2050,33 +2169,106 @@ def render_step0_define_demographics():
     st.markdown("#### ✏️ Define Custom Demographics")
     
     with st.expander("🎨 Create Custom Demographics", expanded=False):
+        # Initialize form defaults from session state
+        form_defaults = st.session_state.get('custom_form_data', {
+            'segment_name': '',
+            'age_range': '',
+            'income_level': 'Medium (€30k-60k)',
+            'location': '',
+            'lifestyle': '',
+            'tech_comfort': 'Medium',
+            'motivations': '',
+            'segment_description': '',
+            'persona_count': 5
+        })
+        
         with st.form("custom_demographics_form"):
             st.markdown("Define your target demographics and segment characteristics:")
             
             col1, col2 = st.columns(2)
             
             with col1:
-                segment_name = st.text_input("Segment Name*", placeholder="e.g., Tech-Savvy Renovators")
-                age_range = st.text_input("Age Range*", placeholder="e.g., 30-50")
-                income_level = st.selectbox("Income Level", 
-                                          ["Low (< €30k)", "Medium (€30k-60k)", "Medium-High (€60k-100k)", 
-                                           "High (€100k+)", "Business/Corporate", "Varied"])
-                location = st.text_input("Geographic Location", placeholder="e.g., Urban Germany, Suburban areas")
+                segment_name = st.text_input(
+                    "Segment Name*", 
+                    value=form_defaults['segment_name'],
+                    placeholder="e.g., Tech-Savvy Renovators",
+                    key="form_segment_name"
+                )
+                age_range = st.text_input(
+                    "Age Range*", 
+                    value=form_defaults['age_range'],
+                    placeholder="e.g., 30-50",
+                    key="form_age_range"
+                )
+                income_level_options = ["Low (< €30k)", "Medium (€30k-60k)", "Medium-High (€60k-100k)", 
+                                       "High (€100k+)", "Business/Corporate", "Varied"]
+                income_level_index = income_level_options.index(form_defaults['income_level']) if form_defaults['income_level'] in income_level_options else 1
+                income_level = st.selectbox(
+                    "Income Level", 
+                    income_level_options,
+                    index=income_level_index,
+                    key="form_income_level"
+                )
+                location = st.text_input(
+                    "Geographic Location", 
+                    value=form_defaults['location'],
+                    placeholder="e.g., Urban Germany, Suburban areas",
+                    key="form_location"
+                )
             
             with col2:
-                lifestyle = st.text_area("Lifestyle & Characteristics", 
-                                       placeholder="Describe their lifestyle, values, and characteristics...")
-                tech_comfort = st.selectbox("Technology Comfort", ["Low", "Medium", "High", "Varied"])
+                lifestyle = st.text_area(
+                    "Lifestyle & Characteristics",
+                    value=form_defaults['lifestyle'],
+                    placeholder="Describe their lifestyle, values, and characteristics...",
+                    key="form_lifestyle"
+                )
+                tech_comfort_options = ["Low", "Medium", "High", "Varied"]
+                tech_comfort_index = tech_comfort_options.index(form_defaults['tech_comfort']) if form_defaults['tech_comfort'] in tech_comfort_options else 1
+                tech_comfort = st.selectbox(
+                    "Technology Comfort", 
+                    tech_comfort_options,
+                    index=tech_comfort_index,
+                    key="form_tech_comfort"
+                )
             
-            motivations = st.text_area("Key Motivations (one per line)", 
-                                     placeholder="Quality\nInnovation\nValue for money\nConvenience")
-            segment_description = st.text_area("Segment Description*", 
-                                             placeholder="Detailed description of this demographic segment...")
+            motivations = st.text_area(
+                "Key Motivations (one per line)",
+                value=form_defaults['motivations'],
+                placeholder="Quality\nInnovation\nValue for money\nConvenience",
+                key="form_motivations"
+            )
+            segment_description = st.text_area(
+                "Segment Description*",
+                value=form_defaults['segment_description'],
+                placeholder="Detailed description of this demographic segment...",
+                key="form_segment_description"
+            )
             
-            persona_count = st.slider("Number of Personas to Generate", min_value=3, max_value=8, value=5,
-                                    help="How many representative personas should AI create for this demographic?")
+            persona_count = st.slider(
+                "Number of Personas to Generate", 
+                min_value=3, 
+                max_value=8, 
+                value=form_defaults['persona_count'],
+                help="How many representative personas should AI create for this demographic?",
+                key="form_persona_count"
+            )
             
             if st.form_submit_button("🤖 Create Demographics & Generate Personas", type="primary"):
+                # Save form data to session state for persistence
+                form_data = {
+                    'segment_name': segment_name,
+                    'age_range': age_range,
+                    'income_level': income_level,
+                    'location': location,
+                    'lifestyle': lifestyle,
+                    'tech_comfort': tech_comfort,
+                    'motivations': motivations,
+                    'segment_description': segment_description,
+                    'persona_count': persona_count
+                }
+                st.session_state.custom_form_data = form_data
+                
                 if segment_name and age_range and segment_description:
                     motivations_list = [m.strip() for m in motivations.split('\n') if m.strip()] if motivations else []
                     
@@ -2125,12 +2317,22 @@ def render_step0_define_demographics():
     selected_framework = st.selectbox(
         "Choose a segmentation framework:",
         framework_options,
+        index=0,  # Always start with default selection
         key="selected_framework",
         help="Each framework offers different perspectives on consumer segmentation"
     )
     
     if selected_framework and selected_framework != "Select a framework...":
         framework_data = BUILT_IN_SEGMENTS[selected_framework]
+        
+        # Reset segment selection when framework changes
+        if 'last_selected_framework' not in st.session_state:
+            st.session_state.last_selected_framework = selected_framework
+        elif st.session_state.last_selected_framework != selected_framework:
+            st.session_state.last_selected_framework = selected_framework
+            # Clear the segment selection when framework changes
+            if 'selected_built_in_segment' in st.session_state:
+                del st.session_state.selected_built_in_segment
         
         # Show framework description
         st.info(f"**{selected_framework}**: {framework_data['description']}")
@@ -2140,6 +2342,7 @@ def render_step0_define_demographics():
         selected_built_in_segment = st.selectbox(
             f"Choose a segment from {selected_framework}:",
             segment_options,
+            index=0,  # Always start with default selection
             key="selected_built_in_segment"
         )
         
@@ -2306,24 +2509,14 @@ def render_step0_define_demographics():
                 col = persona_cols[i % len(persona_cols)]
                 
                 with col:
+                    # Check if this is a comprehensive persona
+                    has_comprehensive = "_comprehensive" in persona and persona["_comprehensive"]
+                    
                     with st.expander(f"👤 {persona.get('name', 'Persona')} ({persona.get('age', '?')})", expanded=False):
-                        st.write(f"**Job:** {persona.get('job', 'Not specified')}")
-                        st.write(f"**Company:** {persona.get('company', 'Not specified')}")
-                        st.write("**Background:**")
-                        experience = persona.get('experience', 'No background provided')
-                        if isinstance(experience, str):
-                            st.write(experience[:200] + ("..." if len(experience) > 200 else ""))
+                        if has_comprehensive:
+                            render_comprehensive_persona_card(persona)
                         else:
-                            st.write(str(experience)[:200] + "...")
-                        
-                        st.write("**Key Concerns:**")
-                        pain_points = persona.get('pain_points', 'No concerns listed')
-                        if isinstance(pain_points, str):
-                            st.write(pain_points[:150] + ("..." if len(pain_points) > 150 else ""))
-                        elif isinstance(pain_points, list):
-                            st.write('; '.join(pain_points)[:150] + ("..." if len('; '.join(pain_points)) > 150 else ""))
-                        else:
-                            st.write(str(pain_points)[:150] + "...")
+                            render_basic_persona_card(persona)
             
             # Regenerate personas button
             col1, col2, col3 = st.columns([1, 1, 1])
@@ -2344,27 +2537,265 @@ def render_step0_define_demographics():
             else:
                 st.button("➡️ Generate personas first", disabled=True, use_container_width=True)
 
-def generate_personas_for_demographic(demographics: Dict, segment_name: str):
-    """Generate representative personas based on demographic data using AI"""
-    if not OPENAI_AVAILABLE:
-        st.error("OpenAI API not available. Cannot generate personas without API access.")
-        st.session_state.assembled_personas = []
-        return
+def render_basic_persona_card(persona: Dict):
+    """Render basic persona card for backward compatibility"""
+    st.write(f"**Job:** {persona.get('job', 'Not specified')}")
+    st.write(f"**Company:** {persona.get('company', 'Not specified')}")
+    st.write("**Background:**")
+    experience = persona.get('experience', 'No background provided')
+    if isinstance(experience, str):
+        st.write(experience[:200] + ("..." if len(experience) > 200 else ""))
+    else:
+        st.write(str(experience)[:200] + "...")
     
-    try:
-        with st.spinner(f"🤖 Assembling {demographics.get('persona_count', 5)} representative personas for {segment_name}..."):
-            client = openai.OpenAI(api_key=OPENAI_API_KEY)
-            
-            personas = []
-            persona_count = demographics.get('persona_count', 5)
-            
-            for i in range(persona_count):
-                response = client.chat.completions.create(
-                    model="gpt-4o",  # Use improved model
-                    messages=[
-                        {"role": "system", "content": f"""You are a persona generator for user research. Create realistic, diverse personas that represent the target demographic segment.
+    st.write("**Key Concerns:**")
+    pain_points = persona.get('pain_points', 'No concerns listed')
+    if isinstance(pain_points, str):
+        st.write(pain_points[:150] + ("..." if len(pain_points) > 150 else ""))
+    elif isinstance(pain_points, list):
+        st.write('; '.join(pain_points)[:150] + ("..." if len('; '.join(pain_points)) > 150 else ""))
+    else:
+        st.write(str(pain_points)[:150] + "...")
 
-TARGET DEMOGRAPHIC SEGMENT: {segment_name}
+def render_comprehensive_persona_card(persona: Dict):
+    """Render enhanced persona card with comprehensive data"""
+    comp = persona.get("_comprehensive", {})
+    
+    # Basic Information
+    basic_info = comp.get("basic_information", {})
+    if basic_info.get("one_line_summary"):
+        st.markdown(f"*{basic_info.get('one_line_summary')}*")
+    
+    if basic_info.get("photo_description"):
+        st.caption(f"📸 {basic_info.get('photo_description')}")
+    
+    # Demographics
+    demo = comp.get("demographics", {})
+    if demo:
+        st.write(f"**📍 Location:** {demo.get('location', 'N/A')}")
+        st.write(f"**💼 Role:** {demo.get('occupation', 'N/A')} at {demo.get('industry', 'N/A')}")
+        st.write(f"**💰 Income:** {demo.get('income_range', 'N/A')}")
+        st.write(f"**🏠 Household:** {demo.get('household', 'N/A')}")
+    
+    # Create tabs for detailed information
+    tab1, tab2, tab3, tab4 = st.tabs(["🎯 Goals & Pain Points", "💻 Digital Life", "📅 Day in Life", "💬 Quotes"])
+    
+    with tab1:
+        # Goals
+        goals = comp.get("goals_jobs_to_be_done", {})
+        if goals.get("primary_goals"):
+            st.write("**Primary Goals:**")
+            for goal in goals.get("primary_goals", []):
+                st.write(f"• {goal}")
+        
+        # Pain Points
+        pains = comp.get("pain_points_frustrations", {})
+        if pains.get("major_challenges"):
+            st.write("**Major Challenges:**")
+            for challenge in pains.get("major_challenges", []):
+                st.write(f"• {challenge}")
+    
+    with tab2:
+        # Digital Ecosystem
+        digital = comp.get("digital_ecosystem", {})
+        if digital.get("devices_used"):
+            st.write("**Devices:** " + ", ".join(digital.get("devices_used", [])))
+        if digital.get("key_apps_tools"):
+            st.write("**Key Apps:** " + ", ".join(digital.get("key_apps_tools", [])))
+        if digital.get("technical_proficiency"):
+            st.write(f"**Tech Skill:** {digital.get('technical_proficiency')}")
+        
+        # Behavioral Patterns
+        behavior = comp.get("behavioral_patterns", {})
+        if behavior.get("purchasing_habits"):
+            st.write(f"**Purchase Style:** {behavior.get('purchasing_habits')}")
+    
+    with tab3:
+        # Day in the Life
+        day_timeline = comp.get("day_in_life", [])
+        if day_timeline:
+            st.write("**Typical Day:**")
+            for entry in day_timeline[:6]:  # Show first 6 entries
+                if isinstance(entry, dict) and "time" in entry and "activity" in entry:
+                    st.write(f"**{entry['time']}** - {entry['activity']}")
+                else:
+                    st.write(f"• {str(entry)}")
+    
+    with tab4:
+        # Quotes
+        quotes = comp.get("quotes", [])
+        if quotes:
+            st.write("**What they might say:**")
+            for quote in quotes:
+                st.markdown(f"> *\"{quote}\"*")
+        
+        # Key Differentiators
+        differentiators = comp.get("key_differentiators", [])
+        if differentiators:
+            st.write("**What makes them unique:**")
+            for diff in differentiators:
+                st.write(f"• {diff}")
+
+def generate_unique_german_names(count: int, used_names: set = None) -> list:
+    """Generate unique, diverse German names avoiding duplicates"""
+    if used_names is None:
+        used_names = set()
+    
+    # Comprehensive German names database
+    german_names = {
+        'male_first': [
+            # Traditional German names
+            'Alexander', 'Andreas', 'Christian', 'Daniel', 'David', 'Felix', 'Florian', 'Jan', 'Jonas', 'Lukas', 'Marco', 'Martin', 'Matthias', 'Max', 'Michael', 'Nico', 'Oliver', 'Patrick', 'Paul', 'Peter', 'Philipp', 'Sebastian', 'Stefan', 'Thomas', 'Tim', 'Tobias',
+            # Modern German names
+            'Leon', 'Finn', 'Noah', 'Elias', 'Louis', 'Henry', 'Ben', 'Luca', 'Emil', 'Anton', 'Theo', 'Moritz', 'Jakob', 'Samuel', 'Julian', 'Matteo', 'Oskar', 'Leo', 'Carl', 'Vincent',
+            # International names popular in Germany
+            'Adrian', 'Bruno', 'Diego', 'Erik', 'Fabio', 'Gabriel', 'Hugo', 'Ivan', 'Kilian', 'Leonard', 'Milan', 'Nils', 'Rafael', 'Simon', 'Valentin', 'Wilhelm',
+            # Less common but authentic
+            'Benedikt', 'Constantin', 'Dominik', 'Friedrich', 'Georg', 'Hannes', 'Ignatius', 'Jasper', 'Klaus', 'Lorenz', 'Magnus', 'Niklas', 'Otis', 'Quentin', 'Robert', 'Sven', 'Timo', 'Ulrich', 'Viktor', 'Werner'
+        ],
+        'female_first': [
+            # Traditional German names
+            'Alexandra', 'Andrea', 'Angela', 'Anna', 'Claudia', 'Eva', 'Julia', 'Katharina', 'Lisa', 'Maria', 'Martina', 'Melanie', 'Monika', 'Nicole', 'Petra', 'Sabine', 'Sandra', 'Stefanie', 'Susanne', 'Ute',
+            # Modern German names
+            'Emma', 'Hannah', 'Mia', 'Sofia', 'Emilia', 'Lina', 'Marie', 'Lea', 'Leni', 'Amelie', 'Lia', 'Nora', 'Ida', 'Greta', 'Clara', 'Mathilda', 'Frieda', 'Anni', 'Lara', 'Paula',
+            # International names popular in Germany
+            'Alina', 'Chiara', 'Elena', 'Fiona', 'Grace', 'Hanna', 'Ines', 'Jara', 'Kira', 'Luna', 'Maya', 'Nele', 'Olivia', 'Pia', 'Romy', 'Sara', 'Tessa', 'Vera', 'Zara',
+            # Less common but authentic
+            'Antonia', 'Beatrice', 'Carina', 'Dorothea', 'Elisa', 'Franziska', 'Gabriele', 'Helena', 'Iris', 'Johanna', 'Kristina', 'Larissa', 'Marlene', 'Nadine', 'Ophelia', 'Philippa', 'Regina', 'Simone', 'Theresa', 'Valeria'
+        ],
+        'surnames': [
+            # Common German surnames
+            'Müller', 'Schmidt', 'Schneider', 'Fischer', 'Weber', 'Meyer', 'Wagner', 'Becker', 'Schulz', 'Hoffmann', 'Schäfer', 'Koch', 'Bauer', 'Richter', 'Klein', 'Wolf', 'Schröder', 'Neumann', 'Schwarz', 'Zimmermann',
+            # Regional variations
+            'Braun', 'Krüger', 'Hartmann', 'Lange', 'Schmitt', 'Werner', 'Schmitz', 'Krause', 'Meier', 'Lehmann', 'Huber', 'Mayer', 'Herrmann', 'König', 'Walter', 'Fuchs', 'Kaiser', 'Lang', 'Weiß', 'Peters',
+            # Less common surnames
+            'Berger', 'Frank', 'Möller', 'Roth', 'Graf', 'Keller', 'Köhler', 'Sommer', 'Winter', 'Berg', 'Vogel', 'Stein', 'Gross', 'Hahn', 'Riedel', 'Engel', 'Horn', 'Busch', 'Bergmann', 'Voigt',
+            # Modern/International surnames
+            'Rosenberg', 'Goldmann', 'Lindemann', 'Bachmann', 'Kaufmann', 'Brenner', 'Förster', 'Günther', 'Ludwig', 'Böhm', 'Kuhn', 'Pfeiffer', 'Seidel', 'Albrecht', 'Voss', 'Weiss', 'Kraft', 'Wenzel', 'Scholz', 'Kern'
+        ]
+    }
+    
+    import random
+    unique_names = []
+    attempts = 0
+    max_attempts = count * 20  # Prevent infinite loops
+    
+    while len(unique_names) < count and attempts < max_attempts:
+        # Choose gender
+        gender = random.choice(['male', 'female'])
+        
+        # Select random names
+        first_name = random.choice(german_names[f'{gender}_first'])
+        surname = random.choice(german_names['surnames'])
+        full_name = f"{first_name} {surname}"
+        
+        # Check for uniqueness
+        if full_name not in used_names and full_name not in [name[0] for name in unique_names]:
+            unique_names.append((full_name, gender))
+            used_names.add(full_name)
+        
+        attempts += 1
+    
+    return unique_names
+
+def generate_comprehensive_persona_prompt(demographics: Dict, segment_name: str, persona_number: int, total_personas: int, unique_name: str, industry: str = "Bathroom/Sanitary Products", product_type: str = "Home improvement products", market_region: str = "Germany", research_goals: str = "Understanding user needs and pain points") -> str:
+    """Create the comprehensive persona system prompt with unique name"""
+    return f"""You are an expert user research persona generator specializing in creating nuanced, data-informed personas that drive meaningful product and design decisions. Your personas balance statistical representation with human storytelling to create memorable, actionable user archetypes.
+
+## Core Responsibilities
+
+Generate comprehensive personas that include ALL of the following sections:
+
+### 1. Basic Information
+- **Name**: Use exactly this name: "{unique_name}"
+- **Age**: Specific age (not a range)
+- **Photo Description**: Brief description of their appearance and setting (e.g., "Professional woman in her 30s working at a modern office space")
+- **One-line Summary**: A memorable tagline that captures their essence
+
+### 2. Demographics
+- **Location**: City, Country
+- **Occupation**: Specific job title
+- **Industry**: Their field of work
+- **Income Range**: Annual income bracket
+- **Education**: Highest level completed and field
+- **Household**: Composition (single, married, children, etc.)
+- **Living Situation**: Urban/suburban/rural, rent/own
+
+### 3. Psychographics
+- **Values**: 3-4 core values that drive decisions
+- **Motivations**: What gets them up in the morning
+- **Lifestyle**: How they spend their time
+- **Personality Traits**: 4-5 key characteristics
+- **Attitudes**: Toward technology, change, and risk
+
+### 4. Behavioral Patterns
+- **Daily Routines**: Typical day structure and habits
+- **Technology Usage**: Devices, frequency, comfort level
+- **Purchasing Habits**: How they research and buy
+- **Decision Making Style**: Data-driven, intuitive, collaborative, etc.
+- **Information Consumption**: How they stay informed
+
+### 5. Goals & Jobs-to-be-Done
+- **Primary Goals**: 3-4 main objectives in life/work
+- **Jobs-to-be-Done**: Specific tasks they need to accomplish
+- **Success Metrics**: How they measure achievement
+- **Underlying Needs**: Deeper emotional/functional needs
+
+### 6. Pain Points & Frustrations
+- **Major Challenges**: Top 3-4 problems they face
+- **Daily Frustrations**: Recurring annoyances
+- **Unmet Needs**: What solutions are missing
+- **Current Workarounds**: How they cope today
+
+### 7. Digital Ecosystem
+- **Devices Used**: List all devices with specific models
+- **Platforms & Social Media**: Where they're active online
+- **Key Apps/Tools**: Most used applications
+- **Technical Proficiency**: Novice/Intermediate/Advanced/Expert
+- **Preferred Communication Channels**: Email, text, video, etc.
+
+### 8. Scenario & Context
+- **Typical Use Cases**: When/why they'd use the product
+- **Environmental Factors**: Where they work/live
+- **Time Constraints**: Schedule pressures
+- **Contextual Triggers**: What prompts action
+
+### 9. Influences & Decision Factors
+- **Key Influencers**: Who they trust and listen to
+- **Information Sources**: Where they research
+- **Purchase Criteria**: What matters when buying
+- **Deal Breakers**: What would stop them
+
+### 10. Day in the Life
+Provide a timeline of their typical day with 8-10 specific moments, formatted as:
+- 6:30 AM - [Activity]
+- 8:00 AM - [Activity]
+(Continue throughout the day)
+
+### 11. Quotes
+Include 3 authentic quotes this persona might say that reveal their perspective:
+- About their main challenge
+- About their goals
+- About their decision-making
+
+### 12. Relationship to Product/Service
+Describe how this persona would interact with or view the product/service being researched.
+
+### 13. Key Differentiators
+List 3 things that make this persona distinct from others in the set.
+
+## Quality Standards
+
+- **Be Specific**: Use "Checks Instagram 6x daily during commute" not "Uses social media"
+- **Add Realistic Details**: Include specific brands, tools, numbers
+- **Show Complexity**: People have contradictions - capture them
+- **Ground in Reality**: Based on {segment_name} and {market_region}
+- **Ensure Diversity**: Vary age, background, tech comfort, and perspectives across personas
+- **Make Them Memorable**: Each persona should feel like someone you could meet
+
+## Context for This Persona
+
+Target Segment: {segment_name}
 - Age Range: {demographics.get('age_range', 'Not specified')}
 - Income Level: {demographics.get('income_level', 'Not specified')}
 - Location: {demographics.get('location', 'Not specified')}
@@ -2373,22 +2804,137 @@ TARGET DEMOGRAPHIC SEGMENT: {segment_name}
 - Key Motivations: {', '.join(demographics.get('key_motivations', []))}
 - Segment Description: {demographics.get('segment_description', 'Not specified')}
 
-Generate a JSON object with these exact fields (all values must be STRINGS):
-- name: Full German name appropriate for the demographic (STRING)
-- age: Specific age within the range (NUMBER as INTEGER)
-- job: Job title that fits the income/lifestyle profile (STRING)
-- company: Company description that matches the profile (STRING)  
-- experience: Background with bathroom products/renovations fitting their experience level (STRING - paragraph format)
-- pain_points: Current challenges and frustrations relevant to this demographic (STRING - paragraph format, not a list)
-- goals: What they want to achieve, aligned with key motivations (STRING - paragraph format)
-- personality: Communication style and decision-making approach fitting the segment (STRING - paragraph format)
+Industry: {industry}
+Product Type: {product_type}
+Market Region: {market_region}
+Research Goals: {research_goals}
+Persona Number: {persona_number} of {total_personas}
 
-IMPORTANT: All fields except 'age' must be strings. Do not use arrays/lists for any field. Write pain_points, goals, etc. as coherent paragraphs.
+## Important Notes
 
-Make each persona unique while staying within the demographic parameters. Focus on realistic German customers that truly represent this segment."""},
-                        {"role": "user", "content": f"Generate persona {i+1} of {persona_count} for the {segment_name} demographic segment. Make it distinct from previous personas while staying within the demographic parameters."}
+1. Make this persona distinct from others in the set - vary demographics, attitudes, and behaviors
+2. Include both progressive and conservative viewpoints relative to technology adoption
+3. Reflect realistic constraints (time, money, knowledge)
+4. Avoid stereotypes while acknowledging genuine patterns
+5. Include edge cases and extreme users alongside mainstream segments
+6. Consider cultural context for the specified market region
+
+## Output Format
+
+Return a JSON object with the following structure:
+{{
+  "basic_information": {{
+    "name": "Full name",
+    "age": 35,
+    "photo_description": "Description of appearance and setting",
+    "one_line_summary": "Memorable tagline"
+  }},
+  "demographics": {{
+    "location": "City, Country",
+    "occupation": "Job title",
+    "industry": "Field of work",
+    "income_range": "Annual income bracket",
+    "education": "Education details",
+    "household": "Household composition",
+    "living_situation": "Living details"
+  }},
+  "psychographics": {{
+    "values": ["Value 1", "Value 2", "Value 3"],
+    "motivations": "What drives them",
+    "lifestyle": "How they spend time",
+    "personality_traits": ["Trait 1", "Trait 2", "Trait 3", "Trait 4"],
+    "attitudes": "Toward technology, change, risk"
+  }},
+  "behavioral_patterns": {{
+    "daily_routines": "Typical day structure",
+    "technology_usage": "Device usage patterns",
+    "purchasing_habits": "How they buy",
+    "decision_making_style": "How they decide",
+    "information_consumption": "How they stay informed"
+  }},
+  "goals_jobs_to_be_done": {{
+    "primary_goals": ["Goal 1", "Goal 2", "Goal 3"],
+    "jobs_to_be_done": "Specific tasks needed",
+    "success_metrics": "How they measure success",
+    "underlying_needs": "Deeper needs"
+  }},
+  "pain_points_frustrations": {{
+    "major_challenges": ["Challenge 1", "Challenge 2", "Challenge 3"],
+    "daily_frustrations": "Recurring annoyances",
+    "unmet_needs": "Missing solutions",
+    "current_workarounds": "How they cope"
+  }},
+  "digital_ecosystem": {{
+    "devices_used": ["Device 1", "Device 2"],
+    "platforms_social_media": ["Platform 1", "Platform 2"],
+    "key_apps_tools": ["App 1", "App 2"],
+    "technical_proficiency": "Skill level",
+    "preferred_communication": ["Channel 1", "Channel 2"]
+  }},
+  "scenario_context": {{
+    "typical_use_cases": "When/why they'd use product",
+    "environmental_factors": "Where they work/live",
+    "time_constraints": "Schedule pressures",
+    "contextual_triggers": "What prompts action"
+  }},
+  "influences_decision_factors": {{
+    "key_influencers": ["Influencer 1", "Influencer 2"],
+    "information_sources": ["Source 1", "Source 2"],
+    "purchase_criteria": ["Criteria 1", "Criteria 2"],
+    "deal_breakers": ["Deal breaker 1", "Deal breaker 2"]
+  }},
+  "day_in_life": [
+    {{"time": "6:30 AM", "activity": "Activity description"}},
+    {{"time": "8:00 AM", "activity": "Activity description"}}
+  ],
+  "quotes": [
+    "Quote about main challenge",
+    "Quote about goals", 
+    "Quote about decision-making"
+  ],
+  "relationship_to_product": "How they'd interact with the product/service",
+  "key_differentiators": ["Differentiator 1", "Differentiator 2", "Differentiator 3"]
+}}
+
+Format your response as a clear, scannable JSON object with all sections included."""
+
+def generate_personas_for_demographic(demographics: Dict, segment_name: str):
+    """Generate representative personas based on demographic data using enhanced AI system"""
+    if not OPENAI_AVAILABLE:
+        st.error("OpenAI API not available. Cannot generate personas without API access.")
+        st.session_state.assembled_personas = []
+        return
+    
+    try:
+        with st.spinner(f"🤖 Assembling {demographics.get('persona_count', 5)} comprehensive personas for {segment_name}..."):
+            client = openai.OpenAI(api_key=OPENAI_API_KEY)
+            
+            personas = []
+            persona_count = demographics.get('persona_count', 5)
+            
+            # Generate unique names for all personas upfront
+            unique_names = generate_unique_german_names(persona_count)
+            
+            for i in range(persona_count):
+                # Get unique name for this persona
+                unique_name, gender = unique_names[i] if i < len(unique_names) else (f"Person {i+1}", "neutral")
+                
+                # Create comprehensive system prompt with unique name
+                system_prompt = generate_comprehensive_persona_prompt(
+                    demographics=demographics,
+                    segment_name=segment_name,
+                    persona_number=i+1,
+                    total_personas=persona_count,
+                    unique_name=unique_name
+                )
+                
+                response = client.chat.completions.create(
+                    model="gpt-4o",  # Use improved model
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": f"Generate comprehensive persona {i+1} of {persona_count} for the {segment_name} demographic segment. Use the exact name '{unique_name}' provided. Make it distinct from previous personas while staying within the demographic parameters. Return as structured JSON."}
                     ],
-                    max_tokens=800,
+                    max_tokens=2000,  # Increased for comprehensive personas
                     temperature=0.8
                 )
                 
@@ -2401,17 +2947,28 @@ Make each persona unique while staying within the demographic parameters. Focus 
                 
                 import json
                 try:
-                    persona = json.loads(persona_text)
-                    # Ensure all fields are proper types
-                    if isinstance(persona.get('pain_points'), list):
-                        persona['pain_points'] = '; '.join(persona['pain_points'])
-                    if isinstance(persona.get('goals'), list):
-                        persona['goals'] = '; '.join(persona['goals'])
-                    if isinstance(persona.get('experience'), list):
-                        persona['experience'] = '; '.join(persona['experience'])
+                    comprehensive_persona = json.loads(persona_text)
+                    
+                    # Convert comprehensive persona to backward-compatible format for existing UI
+                    # while preserving the full data structure
+                    persona = {
+                        # Basic backward compatibility fields
+                        "name": comprehensive_persona.get("basic_information", {}).get("name", "Unknown"),
+                        "age": comprehensive_persona.get("basic_information", {}).get("age", 30),
+                        "job": comprehensive_persona.get("demographics", {}).get("occupation", "Professional"),
+                        "company": comprehensive_persona.get("demographics", {}).get("industry", "Unknown Industry"),
+                        "experience": comprehensive_persona.get("behavioral_patterns", {}).get("daily_routines", "Standard professional experience"),
+                        "pain_points": "; ".join(comprehensive_persona.get("pain_points_frustrations", {}).get("major_challenges", ["Various challenges"])),
+                        "goals": "; ".join(comprehensive_persona.get("goals_jobs_to_be_done", {}).get("primary_goals", ["Personal and professional growth"])),
+                        "personality": comprehensive_persona.get("psychographics", {}).get("attitudes", "Balanced approach to decisions"),
+                        
+                        # Full comprehensive data preserved for enhanced features
+                        "_comprehensive": comprehensive_persona
+                    }
+                    
                     personas.append(persona)
                 except json.JSONDecodeError as e:
-                    st.warning(f"Failed to parse persona {i+1}, skipping")
+                    st.warning(f"Failed to parse persona {i+1}: {str(e)}, skipping")
                     # Skip invalid personas instead of using fallback
             
             st.session_state.assembled_personas = personas
